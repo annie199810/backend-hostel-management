@@ -1,242 +1,251 @@
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
+const Room = require("./models/Room");
+const Resident = require("./models/Resident");
+const Maintenance = require("./models/Maintenance");
+const Billing = require("./models/Billing");
+const User = require("./models/User");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const corsOptions = {
+  origin: [CLIENT_ORIGIN, "http://127.0.0.1:5173"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 
-const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5174';
-const corsConfig = {
-  origin: clientOrigin,
-  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
-
-app.use(cors(corsConfig));
-app.options('*', cors(corsConfig)); 
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(async () => {
+    console.log("MongoDB Connected");
+    await ensureDefaultAdmin(); 
+  })
+  .catch((err) => console.error("MongoDB Error:", err));
 
 
-const invoiceSchema = new mongoose.Schema({
-  invoiceNo: { type: String, required: true, unique: true },
-  residentName: String,
-  residentId: String,
-  roomNo: String,
-  amount: Number,
-  dueDate: Date,
-  status: { type: String, default: 'Pending' },
-  meta: Object,
-}, { timestamps: true });
+const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
 
-const paymentSchema = new mongoose.Schema({
-  invoiceId: String,
-  residentId: String,
-  amount: Number,
-  method: String,
-  providerPaymentId: String,
-  providerOrderId: String,
-  status: String,
-  meta: Object,
-}, { timestamps: true });
+async function hashPassword(plain) {
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(plain, salt);
+}
 
-const Invoice = mongoose.models.Invoice || mongoose.model('Invoice', invoiceSchema);
-const Payment = mongoose.models.Payment || mongoose.model('Payment', paymentSchema);
+function createToken(user) {
+  return jwt.sign(
+    { id: user._id, email: user.email, name: user.name },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+}
 
+function safeUser(u) {
+  const obj = u.toObject();
+  delete obj.password;
+  return obj;
+}
 
-async function connectDb() {
-  const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/hostel_db';
+function verifyToken(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.replace("Bearer ", "");
+  if (!token) return res.status(401).json({ ok: false, error: "Missing token" });
+
   try {
-    await mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-    console.log('Mongo connected');
-  } catch (err) {
-    console.error('Mongo connection error', err);
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (e) {
+    return res.status(401).json({ ok: false, error: "Invalid token" });
   }
 }
-connectDb();
 
 
-
-
-app.get('/', (req, res) => {
-  res.json({ ok: true, msg: 'Hostel server running' });
-});
-
-
-app.post('/api/payments', async (req, res) => {
+async function ensureDefaultAdmin() {
   try {
-    const {
-      invoiceId,
-      residentId,
-      amount,
-      method,
-      providerPaymentId,
-      providerOrderId,
-      status,
-      meta,
-    } = req.body;
-
-    if (amount == null) {
-      return res.status(400).json({ ok: false, error: 'amount required' });
+    const email = "admin@hostel.com";
+    const existing = await User.findOne({ email });
+    if (existing) {
+      console.log("Default admin already exists");
+      return;
     }
 
-    const p = new Payment({
-      invoiceId,
-      residentId,
-      amount,
-      method,
-      providerPaymentId,
-      providerOrderId,
-      status,
-      meta,
+    const hashed = await hashPassword("admin123");
+    await User.create({
+      name: "Admin User",
+      email,
+      password: hashed,
+      role: "Admin",
     });
-    await p.save();
 
-    
-    if (invoiceId && status && String(status).toLowerCase() === 'success') {
-      try {
-        if (mongoose.Types.ObjectId.isValid(invoiceId)) {
-          await Invoice.findByIdAndUpdate(invoiceId, { status: 'Paid' });
-        }
-      } catch (e) {
-       
-      }
-      await Invoice.findOneAndUpdate({ invoiceNo: invoiceId }, { status: 'Paid' });
-    }
-
-    return res.json({ ok: true, payment: p });
+    console.log("Seeded default admin user: admin@hostel.com / admin123");
   } catch (err) {
-    console.error('POST /api/payments err', err);
-    return res.status(500).json({ ok: false, error: err.message || 'payments failed' });
+    console.error("ensureDefaultAdmin error:", err);
+  }
+}
+
+
+
+
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { name, email, password, role = "Staff" } = req.body;
+
+    if (!name || !email || !password)
+      return res.status(400).json({ ok: false, error: "Missing fields" });
+
+    const exists = await User.findOne({ email });
+    if (exists)
+      return res.status(409).json({ ok: false, error: "Email already exists" });
+
+    const hashed = await hashPassword(password);
+    const user = await User.create({ name, email, password: hashed, role });
+
+    res.json({ ok: true, user: safeUser(user), token: createToken(user) });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "Register failed" });
   }
 });
 
 
-app.post('/api/invoices', async (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   try {
-    const {
-      residentName,
-      residentId,
-      roomNo,
-      amount,
-      dueDate,
-      invoiceNo,
-    } = req.body;
+    const { email, password } = req.body;
 
-    if (!residentName || amount == null) {
-      return res.status(400).json({ ok: false, error: 'missing fields' });
-    }
+    const u = await User.findOne({ email });
+    if (!u) return res.status(401).json({ ok: false, error: "Invalid login" });
 
-    const invNo = invoiceNo || `INV-${Date.now()}`;
-    const inv = new Invoice({
-      invoiceNo: invNo,
+    const match = await bcrypt.compare(password, u.password);
+    if (!match)
+      return res.status(401).json({ ok: false, error: "Invalid login" });
+
+    res.json({ ok: true, user: safeUser(u), token: createToken(u) });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "Login failed" });
+  }
+});
+
+
+app.get("/api/me", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user)
+      return res.status(404).json({ ok: false, error: "User not found" });
+
+    res.json({ ok: true, user: safeUser(user) });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "Failed to load user" });
+  }
+});
+
+
+app.get("/api/billing", async (req, res) => {
+  try {
+    const data = await Billing.find().sort({ createdAt: -1 });
+    res.json({ ok: true, payments: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "Failed to load billing" });
+  }
+});
+
+app.post("/api/billing", async (req, res) => {
+  try {
+    const { residentName, roomNumber, amount, month } = req.body;
+
+    if (!residentName || !roomNumber || amount == null || !month)
+      return res.status(400).json({ ok: false, error: "Missing fields" });
+
+    const doc = await Billing.create({
       residentName,
-      residentId,
-      roomNo,
+      roomNumber,
       amount,
-      dueDate,
+      month,
+      status: req.body.status || "Pending",
+      method: req.body.method || "Cash",
+      dueDate: req.body.dueDate || "",
+      paidOn: req.body.paidOn || "",
+      notes: req.body.notes || "",
+      invoiceNo: req.body.invoiceNo || "",
     });
-    await inv.save();
 
-    return res.json({ ok: true, invoice: inv });
+    res.json({ ok: true, payment: doc });
   } catch (err) {
-    console.error('POST /api/invoices err', err);
-    if (err.code === 11000) {
-      return res.status(400).json({ ok: false, error: 'invoiceNo already exists' });
-    }
-    return res.status(500).json({ ok: false, error: err.message || 'invoices failed' });
+    res.status(500).json({ ok: false, error: "Failed to create payment" });
   }
 });
 
-
-app.get('/api/billing', async (req, res) => {
-  try {
-    const rows = await Invoice.find().sort({ createdAt: -1 }).lean();
-
-    const payments = rows.map((r) => ({
-      _id: r._id,
-      invoiceNo: r.invoiceNo,
-      residentName: r.residentName,
-      residentId: r.residentId,
-      roomNumber: r.roomNo,
-      amount: r.amount,
-      dueDate: r.dueDate,
-      status: r.status,
-      notes: r.meta?.notes || '',
-    }));
-
-    res.json({ ok: true, payments });
-  } catch (err) {
-    console.error('GET /api/billing err', err);
-    res.status(500).json({ ok: false, error: err.message || 'billing list failed' });
-  }
-});
-
-
-app.patch('/api/billing/:id/pay', async (req, res) => {
+app.patch("/api/billing/:id/pay", async (req, res) => {
   try {
     const id = req.params.id;
-    const { method, providerPaymentId, providerOrderId, meta } = req.body || {};
+    const updated = await Billing.findByIdAndUpdate(
+      id,
+      { status: "Paid", paidOn: new Date().toISOString().slice(0, 10) },
+      { new: true }
+    );
 
-    let invoice = null;
+    if (!updated)
+      return res.status(404).json({ ok: false, error: "Not found" });
 
-    
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      invoice = await Invoice.findById(id);
-    }
-    
-    if (!invoice) {
-      invoice = await Invoice.findOne({ invoiceNo: id });
-    }
-
-    if (!invoice) {
-      return res.status(404).json({ ok: false, error: 'Invoice not found' });
-    }
-
-    
-    invoice.status = 'Paid';
-    if (!invoice.meta) invoice.meta = {};
-    invoice.meta.lastPayment = {
-      method: method || 'unknown',
-      providerPaymentId,
-      providerOrderId,
-      ts: new Date(),
-    };
-
-    await invoice.save();
-
-    
-    const payment = new Payment({
-      invoiceId: invoice._id.toString(),
-      residentId: invoice.residentId || null,
-      amount: invoice.amount,
-      method: method || 'Manual',
-      providerPaymentId: providerPaymentId || null,
-      providerOrderId: providerOrderId || null,
-      status: 'Success',
-      meta: meta || {},
-    });
-    await payment.save();
-
-    return res.json({
-      ok: true,
-      payment: {
-        _id: payment._id,
-        status: 'Paid',
-        paidOn: new Date().toISOString().slice(0, 10),
-      },
-    });
+    res.json({ ok: true, payment: updated });
   } catch (err) {
-    console.error('PATCH /api/billing/:id/pay err', err);
-    return res.status(500).json({ ok: false, error: err.message || 'mark pay failed' });
+    res.status(500).json({ ok: false, error: "Failed to update" });
   }
 });
 
 
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+app.get("/api/maintenance", async (req, res) => {
+  const data = await Maintenance.find().sort({ createdAt: -1 });
+  res.json({ ok: true, requests: data });
 });
+
+app.post("/api/maintenance", async (req, res) => {
+  const { roomNumber, issue } = req.body;
+  const doc = await Maintenance.create({
+    roomNumber,
+    issue,
+    type: req.body.type || "Others",
+    priority: req.body.priority || "Medium",
+    status: req.body.status || "Open",
+    reportedOn: new Date().toISOString().slice(0, 10),
+  });
+  res.json({ ok: true, request: doc });
+});
+
+
+app.get("/api/residents", async (_, res) => {
+  const data = await Resident.find().sort({ createdAt: -1 });
+  res.json({ ok: true, residents: data });
+});
+
+app.post("/api/residents", async (req, res) => {
+  const doc = await Resident.create({
+    name: req.body.name,
+    roomNumber: req.body.roomNumber,
+    phone: req.body.phone,
+    status: "active",
+    checkIn: new Date().toISOString().slice(0, 10),
+  });
+
+  res.json({ ok: true, resident: doc });
+});
+
+app.get("/api/rooms", async (_, res) => {
+  const data = await Room.find().sort({ number: 1 });
+  res.json({ ok: true, rooms: data });
+});
+
+
+app.get("/", (req, res) => res.send("Hostel API Running"));
+
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () =>
+  console.log("Server running on port", PORT)
+);
