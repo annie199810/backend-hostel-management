@@ -14,10 +14,9 @@ const Billing = require("./models/Billing");
 const User = require("./models/User");
 
 
-const userRoutes = require("./routes/users");
+const userRoutes = require("./routes/users"); // 
 
 const app = express();
-
 
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
@@ -30,7 +29,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-
 
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
@@ -70,11 +68,11 @@ function verifyToken(req, res, next) {
 }
 
 
-
 async function ensureDefaultAdmin() {
   try {
     const email = "admin@hostel.com";
     const exists = await User.findOne({ email });
+
     if (!exists) {
       const hashed = await hashPassword("admin123");
       await User.create({
@@ -89,7 +87,6 @@ async function ensureDefaultAdmin() {
     console.error("ensureDefaultAdmin error:", err);
   }
 }
-
 
 
 mongoose
@@ -121,11 +118,10 @@ app.post("/api/auth/register", async (req, res) => {
 
     res.json({ ok: true, user: safeUser(user), token: createToken(user) });
   } catch (err) {
-    console.error("Register error:", err);
+    console.error("POST /api/auth/register error:", err);
     res.status(500).json({ ok: false, error: "Register failed" });
   }
 });
-
 
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -143,11 +139,10 @@ app.post("/api/auth/login", async (req, res) => {
 
     res.json({ ok: true, user: safeUser(u), token: createToken(u) });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("POST /api/auth/login error:", err);
     res.status(500).json({ ok: false, error: "Login failed" });
   }
 });
-
 
 app.get("/api/me", verifyToken, async (req, res) => {
   try {
@@ -157,15 +152,13 @@ app.get("/api/me", verifyToken, async (req, res) => {
     }
     res.json({ ok: true, user: safeUser(u) });
   } catch (err) {
-    console.error("/api/me error:", err);
+    console.error("GET /api/me error:", err);
     res.status(500).json({ ok: false, error: "Failed to load profile" });
   }
 });
 
 
-
-app.use("/api/users", userRoutes); 
-
+app.use("/api/users", userRoutes);
 
 
 app.get("/api/billing", async (req, res) => {
@@ -211,7 +204,10 @@ app.patch("/api/billing/:id/pay", async (req, res) => {
     const id = req.params.id;
     const updated = await Billing.findByIdAndUpdate(
       id,
-      { status: "Paid", paidOn: new Date().toISOString().slice(0, 10) },
+      {
+        status: "Paid",
+        paidOn: new Date().toISOString().slice(0, 10),
+      },
       { new: true }
     );
 
@@ -227,7 +223,6 @@ app.patch("/api/billing/:id/pay", async (req, res) => {
 });
 
 
-
 app.get("/api/maintenance", async (req, res) => {
   try {
     const data = await Maintenance.find().sort({ createdAt: -1 });
@@ -241,6 +236,7 @@ app.get("/api/maintenance", async (req, res) => {
 app.post("/api/maintenance", async (req, res) => {
   try {
     const { roomNumber, issue } = req.body;
+
     const doc = await Maintenance.create({
       roomNumber,
       issue,
@@ -249,13 +245,13 @@ app.post("/api/maintenance", async (req, res) => {
       status: req.body.status || "Open",
       reportedOn: new Date().toISOString().slice(0, 10),
     });
+
     res.json({ ok: true, request: doc });
   } catch (err) {
     console.error("POST /api/maintenance error:", err);
     res.status(500).json({ ok: false, error: "Failed to create request" });
   }
 });
-
 
 
 app.get("/api/residents", async (_, res) => {
@@ -286,7 +282,6 @@ app.post("/api/residents", async (req, res) => {
 });
 
 
-
 app.get("/api/rooms", async (_, res) => {
   try {
     const data = await Room.find().sort({ number: 1 });
@@ -298,9 +293,7 @@ app.get("/api/rooms", async (_, res) => {
 });
 
 
-
 app.get("/", (req, res) => res.send("Hostel API Running"));
-
 
 
 const PORT = process.env.PORT || 5000;
