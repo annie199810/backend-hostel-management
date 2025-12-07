@@ -17,20 +17,11 @@ const app = express();
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 const corsOptions = {
   origin: [CLIENT_ORIGIN, "http://127.0.0.1:5173"],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"], 
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 app.use(cors(corsOptions));
 app.use(express.json());
-
-
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(async () => {
-    console.log("MongoDB Connected");
-    await ensureDefaultAdmin(); 
-  })
-  .catch((err) => console.error("MongoDB Error:", err));
 
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
@@ -57,7 +48,8 @@ function safeUser(u) {
 function verifyToken(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.replace("Bearer ", "");
-  if (!token) return res.status(401).json({ ok: false, error: "Missing token" });
+  if (!token)
+    return res.status(401).json({ ok: false, error: "Missing token" });
 
   try {
     req.user = jwt.verify(token, JWT_SECRET);
@@ -71,27 +63,30 @@ function verifyToken(req, res, next) {
 async function ensureDefaultAdmin() {
   try {
     const email = "admin@hostel.com";
-    const existing = await User.findOne({ email });
-    if (existing) {
-      console.log("Default admin already exists");
-      return;
+    const exists = await User.findOne({ email });
+    if (!exists) {
+      const hashed = await hashPassword("admin123");
+      await User.create({
+        name: "Admin User",
+        email,
+        password: hashed,
+        role: "Admin",
+      });
+      console.log("Seeded default admin user:", email);
     }
-
-    const hashed = await hashPassword("admin123");
-    await User.create({
-      name: "Admin User",
-      email,
-      password: hashed,
-      role: "Admin",
-    });
-
-    console.log("Seeded default admin user: admin@hostel.com / admin123");
   } catch (err) {
     console.error("ensureDefaultAdmin error:", err);
   }
 }
 
 
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(async () => {
+    console.log("MongoDB Connected");
+    await ensureDefaultAdmin(); 
+  })
+  .catch((err) => console.error("MongoDB Error:", err));
 
 
 app.post("/api/auth/register", async (req, res) => {
@@ -103,7 +98,9 @@ app.post("/api/auth/register", async (req, res) => {
 
     const exists = await User.findOne({ email });
     if (exists)
-      return res.status(409).json({ ok: false, error: "Email already exists" });
+      return res
+        .status(409)
+        .json({ ok: false, error: "Email already exists" });
 
     const hashed = await hashPassword(password);
     const user = await User.create({ name, email, password: hashed, role });
@@ -114,13 +111,13 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const u = await User.findOne({ email });
-    if (!u) return res.status(401).json({ ok: false, error: "Invalid login" });
+    if (!u)
+      return res.status(401).json({ ok: false, error: "Invalid login" });
 
     const match = await bcrypt.compare(password, u.password);
     if (!match)
@@ -135,13 +132,11 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/me", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user)
-      return res.status(404).json({ ok: false, error: "User not found" });
-
-    res.json({ ok: true, user: safeUser(user) });
+    const u = await User.findById(req.user.id);
+    if (!u) return res.status(404).json({ ok: false, error: "User not found" });
+    res.json({ ok: true, user: safeUser(u) });
   } catch (err) {
-    res.status(500).json({ ok: false, error: "Failed to load user" });
+    res.status(500).json({ ok: false, error: "Failed to load profile" });
   }
 });
 
@@ -236,6 +231,7 @@ app.post("/api/residents", async (req, res) => {
   res.json({ ok: true, resident: doc });
 });
 
+
 app.get("/api/rooms", async (_, res) => {
   const data = await Room.find().sort({ number: 1 });
   res.json({ ok: true, rooms: data });
@@ -244,8 +240,6 @@ app.get("/api/rooms", async (_, res) => {
 
 app.get("/", (req, res) => res.send("Hostel API Running"));
 
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () =>
-  console.log("Server running on port", PORT)
+app.listen(process.env.PORT || 5000, () =>
+  console.log("Server running on port", process.env.PORT || 5000)
 );
