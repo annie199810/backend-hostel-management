@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -18,7 +17,8 @@ const app = express();
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 const corsOptions = {
   origin: [CLIENT_ORIGIN, "http://127.0.0.1:5173"],
-  methods: ["GET", "POST", "PUT", "DELETE"],
+ 
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 app.use(cors(corsOptions));
@@ -104,6 +104,20 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 
+app.post("/api/payments", async (req, res) => {
+  try {
+    console.log("Received payment payload:", req.body);
+   
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("POST /api/payments error:", err);
+    return res
+      .status(500)
+      .json({ ok: false, error: "Failed to record payment" });
+  }
+});
+
+
 app.get("/api/billing", async (req, res) => {
   try {
     const data = await Billing.find().sort({ createdAt: -1 });
@@ -139,13 +153,15 @@ app.post("/api/billing", async (req, res) => {
   }
 });
 
-
 app.patch("/api/billing/:id/pay", async (req, res) => {
   try {
     const id = req.params.id;
     const updated = await Billing.findByIdAndUpdate(
       id,
-      { status: "Paid", paidOn: new Date().toISOString().slice(0, 10) },
+      {
+        status: "Paid",
+        paidOn: new Date().toISOString().slice(0, 10),
+      },
       { new: true }
     );
 
@@ -154,6 +170,7 @@ app.patch("/api/billing/:id/pay", async (req, res) => {
 
     res.json({ ok: true, payment: updated });
   } catch (err) {
+    console.error("PATCH /api/billing/:id/pay error:", err);
     res.status(500).json({ ok: false, error: "Failed to update" });
   }
 });
@@ -205,6 +222,5 @@ app.get("/api/rooms", async (_, res) => {
 app.get("/", (req, res) => res.send("Hostel API Running"));
 
 
-app.listen(process.env.PORT || 5000, () =>
-  console.log("Server running on port", process.env.PORT || 5000)
-);
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log("Server running on port", PORT));
