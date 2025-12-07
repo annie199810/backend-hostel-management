@@ -12,7 +12,14 @@ app.use(express.json());
 
 
 const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5174';
-app.use(cors({ origin: clientOrigin }));
+const corsConfig = {
+  origin: clientOrigin,
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsConfig));
+app.options('*', cors(corsConfig)); 
 
 
 const invoiceSchema = new mongoose.Schema({
@@ -23,7 +30,7 @@ const invoiceSchema = new mongoose.Schema({
   amount: Number,
   dueDate: Date,
   status: { type: String, default: 'Pending' },
-  meta: Object
+  meta: Object,
 }, { timestamps: true });
 
 const paymentSchema = new mongoose.Schema({
@@ -34,7 +41,7 @@ const paymentSchema = new mongoose.Schema({
   providerPaymentId: String,
   providerOrderId: String,
   status: String,
-  meta: Object
+  meta: Object,
 }, { timestamps: true });
 
 const Invoice = mongoose.models.Invoice || mongoose.model('Invoice', invoiceSchema);
@@ -48,10 +55,11 @@ async function connectDb() {
     console.log('Mongo connected');
   } catch (err) {
     console.error('Mongo connection error', err);
-    
   }
 }
 connectDb();
+
+
 
 
 app.get('/', (req, res) => {
@@ -61,10 +69,31 @@ app.get('/', (req, res) => {
 
 app.post('/api/payments', async (req, res) => {
   try {
-    const { invoiceId, residentId, amount, method, providerPaymentId, providerOrderId, status, meta } = req.body;
-    if (amount == null) return res.status(400).json({ ok: false, error: 'amount required' });
+    const {
+      invoiceId,
+      residentId,
+      amount,
+      method,
+      providerPaymentId,
+      providerOrderId,
+      status,
+      meta,
+    } = req.body;
 
-    const p = new Payment({ invoiceId, residentId, amount, method, providerPaymentId, providerOrderId, status, meta });
+    if (amount == null) {
+      return res.status(400).json({ ok: false, error: 'amount required' });
+    }
+
+    const p = new Payment({
+      invoiceId,
+      residentId,
+      amount,
+      method,
+      providerPaymentId,
+      providerOrderId,
+      status,
+      meta,
+    });
     await p.save();
 
     
@@ -74,7 +103,7 @@ app.post('/api/payments', async (req, res) => {
           await Invoice.findByIdAndUpdate(invoiceId, { status: 'Paid' });
         }
       } catch (e) {
-        
+       
       }
       await Invoice.findOneAndUpdate({ invoiceNo: invoiceId }, { status: 'Paid' });
     }
@@ -89,12 +118,30 @@ app.post('/api/payments', async (req, res) => {
 
 app.post('/api/invoices', async (req, res) => {
   try {
-    const { residentName, residentId, roomNo, amount, dueDate, invoiceNo } = req.body;
-    if (!residentName || amount == null) return res.status(400).json({ ok: false, error: 'missing fields' });
+    const {
+      residentName,
+      residentId,
+      roomNo,
+      amount,
+      dueDate,
+      invoiceNo,
+    } = req.body;
+
+    if (!residentName || amount == null) {
+      return res.status(400).json({ ok: false, error: 'missing fields' });
+    }
 
     const invNo = invoiceNo || `INV-${Date.now()}`;
-    const inv = new Invoice({ invoiceNo: invNo, residentName, residentId, roomNo, amount, dueDate });
+    const inv = new Invoice({
+      invoiceNo: invNo,
+      residentName,
+      residentId,
+      roomNo,
+      amount,
+      dueDate,
+    });
     await inv.save();
+
     return res.json({ ok: true, invoice: inv });
   } catch (err) {
     console.error('POST /api/invoices err', err);
@@ -109,6 +156,7 @@ app.post('/api/invoices', async (req, res) => {
 app.get('/api/billing', async (req, res) => {
   try {
     const rows = await Invoice.find().sort({ createdAt: -1 }).lean();
+
     const payments = rows.map((r) => ({
       _id: r._id,
       invoiceNo: r.invoiceNo,
@@ -118,8 +166,9 @@ app.get('/api/billing', async (req, res) => {
       amount: r.amount,
       dueDate: r.dueDate,
       status: r.status,
-      notes: r.meta?.notes || ''
+      notes: r.meta?.notes || '',
     }));
+
     res.json({ ok: true, payments });
   } catch (err) {
     console.error('GET /api/billing err', err);
@@ -134,7 +183,8 @@ app.patch('/api/billing/:id/pay', async (req, res) => {
     const { method, providerPaymentId, providerOrderId, meta } = req.body || {};
 
     let invoice = null;
-   
+
+    
     if (mongoose.Types.ObjectId.isValid(id)) {
       invoice = await Invoice.findById(id);
     }
@@ -147,13 +197,19 @@ app.patch('/api/billing/:id/pay', async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Invoice not found' });
     }
 
+    
     invoice.status = 'Paid';
     if (!invoice.meta) invoice.meta = {};
-    invoice.meta.lastPayment = { method: method || 'unknown', providerPaymentId, providerOrderId, ts: new Date() };
+    invoice.meta.lastPayment = {
+      method: method || 'unknown',
+      providerPaymentId,
+      providerOrderId,
+      ts: new Date(),
+    };
 
     await invoice.save();
 
-  
+    
     const payment = new Payment({
       invoiceId: invoice._id.toString(),
       residentId: invoice.residentId || null,
@@ -162,19 +218,24 @@ app.patch('/api/billing/:id/pay', async (req, res) => {
       providerPaymentId: providerPaymentId || null,
       providerOrderId: providerOrderId || null,
       status: 'Success',
-      meta: meta || {}
+      meta: meta || {},
     });
     await payment.save();
 
     return res.json({
       ok: true,
-      payment: { _id: payment._id, status: 'Paid', paidOn: new Date().toISOString().slice(0,10) }
+      payment: {
+        _id: payment._id,
+        status: 'Paid',
+        paidOn: new Date().toISOString().slice(0, 10),
+      },
     });
   } catch (err) {
     console.error('PATCH /api/billing/:id/pay err', err);
     return res.status(500).json({ ok: false, error: err.message || 'mark pay failed' });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
