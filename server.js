@@ -14,19 +14,23 @@ const Billing = require("./models/Billing");
 const User = require("./models/User");
 
 
-const userRoutes = require("./routes/users"); // 
+const userRoutes = require("./routes/users");
 
 const app = express();
 
 
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const CLIENT_ORIGIN =
+  process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
 const corsOptions = {
-  origin: [CLIENT_ORIGIN, "http://127.0.0.1:5173"],
+  origin: [
+    CLIENT_ORIGIN,
+    "http://127.0.0.1:5173",
+    "https://hostelmanagementttt.netlify.app", 
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
-
 app.use(cors(corsOptions));
 app.use(express.json());
 
@@ -55,14 +59,14 @@ function safeUser(u) {
 function verifyToken(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.replace("Bearer ", "");
-  if (!token) {
+  if (!token)
     return res.status(401).json({ ok: false, error: "Missing token" });
-  }
 
   try {
     req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch (e) {
+    console.error("verifyToken error:", e);
     return res.status(401).json({ ok: false, error: "Invalid token" });
   }
 }
@@ -72,7 +76,6 @@ async function ensureDefaultAdmin() {
   try {
     const email = "admin@hostel.com";
     const exists = await User.findOne({ email });
-
     if (!exists) {
       const hashed = await hashPassword("admin123");
       await User.create({
@@ -82,6 +85,8 @@ async function ensureDefaultAdmin() {
         role: "Admin",
       });
       console.log("Seeded default admin user:", email);
+    } else {
+      console.log("Default admin already exists:", email);
     }
   } catch (err) {
     console.error("ensureDefaultAdmin error:", err);
@@ -100,18 +105,18 @@ mongoose
 
 app.post("/api/auth/register", async (req, res) => {
   try {
+    console.log("POST /api/auth/register body:", req.body);
+
     const { name, email, password, role = "Staff" } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password)
       return res.status(400).json({ ok: false, error: "Missing fields" });
-    }
 
     const exists = await User.findOne({ email });
-    if (exists) {
+    if (exists)
       return res
         .status(409)
         .json({ ok: false, error: "Email already exists" });
-    }
 
     const hashed = await hashPassword(password);
     const user = await User.create({ name, email, password: hashed, role });
@@ -123,16 +128,29 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
+
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    console.log("POST /api/auth/login body:", req.body);
+
+    const { email, password } = req.body || {};
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Email and password are required" });
+    }
 
     const u = await User.findOne({ email });
+    console.log("Login user from DB:", u ? u.email : null);
+
     if (!u) {
       return res.status(401).json({ ok: false, error: "Invalid login" });
     }
 
     const match = await bcrypt.compare(password, u.password);
+    console.log("Password match result:", match);
+
     if (!match) {
       return res.status(401).json({ ok: false, error: "Invalid login" });
     }
@@ -147,18 +165,13 @@ app.post("/api/auth/login", async (req, res) => {
 app.get("/api/me", verifyToken, async (req, res) => {
   try {
     const u = await User.findById(req.user.id);
-    if (!u) {
-      return res.status(404).json({ ok: false, error: "User not found" });
-    }
+    if (!u) return res.status(404).json({ ok: false, error: "User not found" });
     res.json({ ok: true, user: safeUser(u) });
   } catch (err) {
     console.error("GET /api/me error:", err);
     res.status(500).json({ ok: false, error: "Failed to load profile" });
   }
 });
-
-
-app.use("/api/users", userRoutes);
 
 
 app.get("/api/billing", async (req, res) => {
@@ -175,9 +188,8 @@ app.post("/api/billing", async (req, res) => {
   try {
     const { residentName, roomNumber, amount, month } = req.body;
 
-    if (!residentName || !roomNumber || amount == null || !month) {
+    if (!residentName || !roomNumber || amount == null || !month)
       return res.status(400).json({ ok: false, error: "Missing fields" });
-    }
 
     const doc = await Billing.create({
       residentName,
@@ -204,16 +216,12 @@ app.patch("/api/billing/:id/pay", async (req, res) => {
     const id = req.params.id;
     const updated = await Billing.findByIdAndUpdate(
       id,
-      {
-        status: "Paid",
-        paidOn: new Date().toISOString().slice(0, 10),
-      },
+      { status: "Paid", paidOn: new Date().toISOString().slice(0, 10) },
       { new: true }
     );
 
-    if (!updated) {
+    if (!updated)
       return res.status(404).json({ ok: false, error: "Not found" });
-    }
 
     res.json({ ok: true, payment: updated });
   } catch (err) {
@@ -236,7 +244,6 @@ app.get("/api/maintenance", async (req, res) => {
 app.post("/api/maintenance", async (req, res) => {
   try {
     const { roomNumber, issue } = req.body;
-
     const doc = await Maintenance.create({
       roomNumber,
       issue,
@@ -245,7 +252,6 @@ app.post("/api/maintenance", async (req, res) => {
       status: req.body.status || "Open",
       reportedOn: new Date().toISOString().slice(0, 10),
     });
-
     res.json({ ok: true, request: doc });
   } catch (err) {
     console.error("POST /api/maintenance error:", err);
@@ -291,6 +297,9 @@ app.get("/api/rooms", async (_, res) => {
     res.status(500).json({ ok: false, error: "Failed to load rooms" });
   }
 });
+
+
+app.use("/api/users", userRoutes);
 
 
 app.get("/", (req, res) => res.send("Hostel API Running"));
