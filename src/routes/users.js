@@ -1,16 +1,19 @@
 
+
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User"); 
 
 const router = express.Router();
 
+/
 function safeUser(user) {
   if (!user) return null;
   const obj = user.toObject ? user.toObject() : { ...user };
   delete obj.password;
   return obj;
 }
+
 
 router.get("/", async (req, res) => {
   try {
@@ -27,6 +30,7 @@ router.get("/", async (req, res) => {
     });
   }
 });
+
 
 router.post("/", async (req, res) => {
   try {
@@ -71,16 +75,38 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.patch("/:id", async (req, res) => {
+
+async function updateUserHandler(req, res) {
   try {
     const { id } = req.params;
-    const { name, email, role, status } = req.body || {};
+    const { name, email, role, status, password } = req.body || {};
 
     const update = {};
+
     if (name != null) update.name = name;
     if (email != null) update.email = email.toLowerCase();
     if (role != null) update.role = role;
     if (status != null) update.status = status;
+
+   
+    if (password && password.trim() !== "") {
+      const hash = await bcrypt.hash(password, 10);
+      update.password = hash;
+    }
+
+    
+    if (email) {
+      const existing = await User.findOne({
+        email: email.toLowerCase(),
+        _id: { $ne: id },
+      });
+      if (existing) {
+        return res.status(409).json({
+          ok: false,
+          error: "A user with this email already exists.",
+        });
+      }
+    }
 
     const user = await User.findByIdAndUpdate(id, update, {
       new: true,
@@ -100,7 +126,7 @@ router.patch("/:id", async (req, res) => {
       message: "User details have been updated successfully.",
     });
   } catch (err) {
-    console.error("PATCH /api/users/:id error:", err);
+    console.error("UPDATE /api/users/:id error:", err);
 
     if (err.code === 11000) {
       return res.status(409).json({
@@ -114,7 +140,12 @@ router.patch("/:id", async (req, res) => {
       error: "Unable to update user. Please try again later.",
     });
   }
-});
+}
+
+
+router.put("/:id", updateUserHandler);
+router.patch("/:id", updateUserHandler);
+
 
 router.delete("/:id", async (req, res) => {
   try {
