@@ -1,16 +1,21 @@
 
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+
 const Room = require("./models/Room");
 const Resident = require("./models/Resident");
 const Maintenance = require("./models/Maintenance");
 const Billing = require("./models/Billing");
-const User = require("./models/User");
+const User = require("./models/User"); 
+
+
+const userRoutes = require("./routes/users");
 
 const app = express();
 
@@ -18,13 +23,18 @@ const app = express();
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
 const corsOptions = {
-  origin: [CLIENT_ORIGIN, "http://127.0.0.1:5173"],
+  origin: [
+    CLIENT_ORIGIN,
+    "http://127.0.0.1:5173",
+    "https://hostelmanagementttt.netlify.app", 
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
+
 
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
@@ -43,7 +53,8 @@ function createToken(user) {
 }
 
 function safeUser(u) {
-  const obj = u.toObject();
+  if (!u) return null;
+  const obj = u.toObject ? u.toObject() : { ...u };
   delete obj.password;
   return obj;
 }
@@ -63,18 +74,21 @@ function verifyToken(req, res, next) {
   }
 }
 
+
+
 async function ensureDefaultAdmin() {
   try {
     const email = "admin@hostel.com";
-    const exists = await User.findOne({ email });
+    const existing = await User.findOne({ email });
 
-    if (!exists) {
+    if (!existing) {
       const hashed = await hashPassword("admin123");
       await User.create({
         name: "Admin User",
         email,
         password: hashed,
         role: "Admin",
+        status: "Active",
       });
       console.log("Seeded default admin user:", email);
     }
@@ -82,6 +96,8 @@ async function ensureDefaultAdmin() {
     console.error("ensureDefaultAdmin error:", err);
   }
 }
+
+
 
 mongoose
   .connect(process.env.MONGO_URI)
@@ -100,7 +116,7 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Missing fields" });
     }
 
-    const exists = await User.findOne({ email });
+    const exists = await User.findOne({ email: email.toLowerCase() });
     if (exists) {
       return res
         .status(409)
@@ -108,7 +124,13 @@ app.post("/api/auth/register", async (req, res) => {
     }
 
     const hashed = await hashPassword(password);
-    const user = await User.create({ name, email, password: hashed, role });
+    const user = await User.create({
+      name,
+      email: email.toLowerCase(),
+      password: hashed,
+      role,
+      status: "Active",
+    });
 
     return res.json({
       ok: true,
@@ -132,22 +154,21 @@ app.post("/api/auth/login", async (req, res) => {
         .json({ ok: false, error: "Email and password are required" });
     }
 
-    const u = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
 
-  
-    if (!u || !u.password) {
+    if (!user || !user.password) {
       return res.status(401).json({ ok: false, error: "Invalid login" });
     }
 
-    const match = await bcrypt.compare(String(password), String(u.password));
+    const match = await bcrypt.compare(String(password), String(user.password));
     if (!match) {
       return res.status(401).json({ ok: false, error: "Invalid login" });
     }
 
     return res.json({
       ok: true,
-      user: safeUser(u),
-      token: createToken(u),
+      user: safeUser(user),
+      token: createToken(user),
     });
   } catch (err) {
     console.error("POST /api/auth/login error:", err);
@@ -158,16 +179,21 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/me", verifyToken, async (req, res) => {
   try {
-    const u = await User.findById(req.user.id);
-    if (!u) {
+    const user = await User.findById(req.user.id);
+    if (!user) {
       return res.status(404).json({ ok: false, error: "User not found" });
     }
-    return res.json({ ok: true, user: safeUser(u) });
+    return res.json({ ok: true, user: safeUser(user) });
   } catch (err) {
     console.error("GET /api/me error:", err);
     return res.status(500).json({ ok: false, error: "Failed to load profile" });
   }
 });
+
+
+
+app.use("/api/users", userRoutes);
+
 
 
 app.post("/api/payments", async (req, res) => {
@@ -181,6 +207,7 @@ app.post("/api/payments", async (req, res) => {
       .json({ ok: false, error: "Failed to record payment" });
   }
 });
+
 
 
 app.get("/api/billing", async (req, res) => {
@@ -249,6 +276,7 @@ app.patch("/api/billing/:id/pay", async (req, res) => {
 });
 
 
+
 app.get("/api/maintenance", async (req, res) => {
   try {
     const data = await Maintenance.find().sort({ createdAt: -1 });
@@ -284,6 +312,7 @@ app.post("/api/maintenance", async (req, res) => {
 });
 
 
+
 app.get("/api/residents", async (req, res) => {
   try {
     const data = await Resident.find().sort({ createdAt: -1 });
@@ -316,6 +345,7 @@ app.post("/api/residents", async (req, res) => {
 });
 
 
+
 app.get("/api/rooms", async (req, res) => {
   try {
     const data = await Room.find().sort({ number: 1 });
@@ -327,7 +357,12 @@ app.get("/api/rooms", async (req, res) => {
 });
 
 
+
 app.get("/", (req, res) => res.send("Hostel API Running"));
 
+
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log("Server running on port", PORT));
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
