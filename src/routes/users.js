@@ -6,7 +6,7 @@ const User = require("../models/User");
 
 const router = express.Router();
 
-/
+
 function safeUser(user) {
   if (!user) return null;
   const obj = user.toObject ? user.toObject() : { ...user };
@@ -88,7 +88,7 @@ async function updateUserHandler(req, res) {
     if (role != null) update.role = role;
     if (status != null) update.status = status;
 
-   
+
     if (password && password.trim() !== "") {
       const hash = await bcrypt.hash(password, 10);
       update.password = hash;
