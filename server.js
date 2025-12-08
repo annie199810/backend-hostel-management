@@ -1,5 +1,4 @@
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -15,10 +14,9 @@ const Billing = require("./models/Billing");
 const User = require("./models/User");
 
 
-const userRoutes = require("./routes/users");
+const userRoutes = require("./routes/users"); // 
 
 const app = express();
-
 
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
@@ -31,7 +29,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-
 
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
@@ -58,7 +55,6 @@ function safeUser(u) {
 function verifyToken(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.replace("Bearer ", "");
-
   if (!token) {
     return res.status(401).json({ ok: false, error: "Missing token" });
   }
@@ -70,7 +66,6 @@ function verifyToken(req, res, next) {
     return res.status(401).json({ ok: false, error: "Invalid token" });
   }
 }
-
 
 
 async function ensureDefaultAdmin() {
@@ -94,7 +89,6 @@ async function ensureDefaultAdmin() {
 }
 
 
-
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
@@ -104,16 +98,15 @@ mongoose
   .catch((err) => console.error("MongoDB Error:", err));
 
 
-
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { name, email, password, role = "Staff" } = req.body || {};
+    const { name, email, password, role = "Staff" } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ ok: false, error: "Missing fields" });
     }
 
-    const exists = await User.findOne({ email: email.toLowerCase() });
+    const exists = await User.findOne({ email });
     if (exists) {
       return res
         .status(409)
@@ -121,12 +114,7 @@ app.post("/api/auth/register", async (req, res) => {
     }
 
     const hashed = await hashPassword(password);
-    const user = await User.create({
-      name,
-      email: email.toLowerCase(),
-      password: hashed,
-      role,
-    });
+    const user = await User.create({ name, email, password: hashed, role });
 
     res.json({ ok: true, user: safeUser(user), token: createToken(user) });
   } catch (err) {
@@ -137,19 +125,10 @@ app.post("/api/auth/register", async (req, res) => {
 
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({
-        ok: false,
-        error: "Email and password are required.",
-      });
-    }
-
-    const u = await User.findOne({ email: email.toLowerCase() });
-
-    
-    if (!u || !u.password) {
+    const u = await User.findOne({ email });
+    if (!u) {
       return res.status(401).json({ ok: false, error: "Invalid login" });
     }
 
@@ -158,16 +137,10 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(401).json({ ok: false, error: "Invalid login" });
     }
 
-    return res.json({
-      ok: true,
-      user: safeUser(u),
-      token: createToken(u),
-    });
+    res.json({ ok: true, user: safeUser(u), token: createToken(u) });
   } catch (err) {
     console.error("POST /api/auth/login error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Login failed due to a server error." });
+    res.status(500).json({ ok: false, error: "Login failed" });
   }
 });
 
@@ -185,9 +158,7 @@ app.get("/api/me", verifyToken, async (req, res) => {
 });
 
 
-
 app.use("/api/users", userRoutes);
-
 
 
 app.get("/api/billing", async (req, res) => {
@@ -202,7 +173,7 @@ app.get("/api/billing", async (req, res) => {
 
 app.post("/api/billing", async (req, res) => {
   try {
-    const { residentName, roomNumber, amount, month } = req.body || {};
+    const { residentName, roomNumber, amount, month } = req.body;
 
     if (!residentName || !roomNumber || amount == null || !month) {
       return res.status(400).json({ ok: false, error: "Missing fields" });
@@ -252,7 +223,6 @@ app.patch("/api/billing/:id/pay", async (req, res) => {
 });
 
 
-
 app.get("/api/maintenance", async (req, res) => {
   try {
     const data = await Maintenance.find().sort({ createdAt: -1 });
@@ -265,7 +235,7 @@ app.get("/api/maintenance", async (req, res) => {
 
 app.post("/api/maintenance", async (req, res) => {
   try {
-    const { roomNumber, issue } = req.body || {};
+    const { roomNumber, issue } = req.body;
 
     const doc = await Maintenance.create({
       roomNumber,
@@ -282,7 +252,6 @@ app.post("/api/maintenance", async (req, res) => {
     res.status(500).json({ ok: false, error: "Failed to create request" });
   }
 });
-
 
 
 app.get("/api/residents", async (_, res) => {
@@ -313,7 +282,6 @@ app.post("/api/residents", async (req, res) => {
 });
 
 
-
 app.get("/api/rooms", async (_, res) => {
   try {
     const data = await Room.find().sort({ number: 1 });
@@ -325,9 +293,7 @@ app.get("/api/rooms", async (_, res) => {
 });
 
 
-
 app.get("/", (req, res) => res.send("Hostel API Running"));
-
 
 
 const PORT = process.env.PORT || 5000;
