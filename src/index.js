@@ -7,18 +7,16 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-
 const Room = require("./models/Room");
 const Resident = require("./models/Resident");
 const Maintenance = require("./models/Maintenance");
 const Billing = require("./models/Billing");
-const User = require("./models/User"); 
-
+const User = require("./models/User");
 
 const userRoutes = require("./routes/users");
+const { verifyToken } = require("./middleware/auth"); 
 
 const app = express();
-
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
@@ -26,7 +24,7 @@ const corsOptions = {
   origin: [
     CLIENT_ORIGIN,
     "http://127.0.0.1:5173",
-    "https://hostelmanagementttt.netlify.app", 
+    "https://hostelmanagementttt.netlify.app",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -35,8 +33,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-
-
 const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
 
 async function hashPassword(plain) {
@@ -44,9 +40,15 @@ async function hashPassword(plain) {
   return bcrypt.hash(plain, salt);
 }
 
+
 function createToken(user) {
   return jwt.sign(
-    { id: user._id, email: user.email, name: user.name },
+    {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role, 
+    },
     JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -58,23 +60,6 @@ function safeUser(u) {
   delete obj.password;
   return obj;
 }
-
-function verifyToken(req, res, next) {
-  const header = req.headers.authorization || "";
-  const token = header.replace("Bearer ", "");
-  if (!token) {
-    return res.status(401).json({ ok: false, error: "Missing token" });
-  }
-
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch (e) {
-    return res.status(401).json({ ok: false, error: "Invalid token" });
-  }
-}
-
-
 
 async function ensureDefaultAdmin() {
   try {
@@ -97,8 +82,6 @@ async function ensureDefaultAdmin() {
   }
 }
 
-
-
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
@@ -106,6 +89,7 @@ mongoose
     await ensureDefaultAdmin();
   })
   .catch((err) => console.error("MongoDB Error:", err));
+
 
 
 app.post("/api/auth/register", async (req, res) => {
@@ -142,7 +126,6 @@ app.post("/api/auth/register", async (req, res) => {
     return res.status(500).json({ ok: false, error: "Register failed" });
   }
 });
-
 
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -359,8 +342,6 @@ app.get("/api/rooms", async (req, res) => {
 
 
 app.get("/", (req, res) => res.send("Hostel API Running"));
-
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

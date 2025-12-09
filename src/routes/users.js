@@ -1,11 +1,10 @@
 
-
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const User = require("../models/User"); 
+const User = require("../models/User");
+const { verifyToken, requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
-
 
 function safeUser(user) {
   if (!user) return null;
@@ -15,7 +14,7 @@ function safeUser(user) {
 }
 
 
-router.get("/", async (req, res) => {
+router.get("/", verifyToken, requireAdmin, async (req, res) => {
   try {
     const users = await User.find().sort({ createdAt: -1 });
     res.json({
@@ -32,7 +31,7 @@ router.get("/", async (req, res) => {
 });
 
 
-router.post("/", async (req, res) => {
+router.post("/", verifyToken, requireAdmin, async (req, res) => {
   try {
     const { name, email, password, role, status } = req.body || {};
 
@@ -43,7 +42,8 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    const existing =
+      (await User.findOne({ email: email.toLowerCase() })) || null;
     if (existing) {
       return res.status(409).json({
         ok: false,
@@ -75,7 +75,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-
 async function updateUserHandler(req, res) {
   try {
     const { id } = req.params;
@@ -88,13 +87,12 @@ async function updateUserHandler(req, res) {
     if (role != null) update.role = role;
     if (status != null) update.status = status;
 
-
     if (password && password.trim() !== "") {
       const hash = await bcrypt.hash(password, 10);
       update.password = hash;
     }
 
-    
+   
     if (email) {
       const existing = await User.findOne({
         email: email.toLowerCase(),
@@ -143,11 +141,11 @@ async function updateUserHandler(req, res) {
 }
 
 
-router.put("/:id", updateUserHandler);
-router.patch("/:id", updateUserHandler);
+router.put("/:id", verifyToken, requireAdmin, updateUserHandler);
+router.patch("/:id", verifyToken, requireAdmin, updateUserHandler);
 
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", verifyToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await User.findByIdAndDelete(id);
