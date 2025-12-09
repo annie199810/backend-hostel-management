@@ -1,3 +1,4 @@
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -118,6 +119,7 @@ async function ensureDefaultAdmin() {
   }
 }
 
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
@@ -192,6 +194,7 @@ app.post("/api/payments", async (req, res) => {
   }
 });
 
+
 app.get("/api/billing", verifyToken, async (req, res) => {
   try {
     const data = await Billing.find().sort({ createdAt: -1 });
@@ -234,6 +237,7 @@ app.post("/api/billing", verifyToken, async (req, res) => {
   }
 });
 
+
 app.patch("/api/billing/:id/pay", verifyToken, async (req, res) => {
   try {
     const id = req.params.id;
@@ -254,6 +258,61 @@ app.patch("/api/billing/:id/pay", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("PATCH /api/billing/:id/pay error:", err);
     return res.status(500).json({ ok: false, error: "Failed to update" });
+  }
+});
+
+
+app.put("/api/billing/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+
+    const update = {};
+    if (body.residentName != null) update.residentName = body.residentName;
+    if (body.roomNumber != null) update.roomNumber = body.roomNumber;
+    if (body.amount != null) update.amount = body.amount;
+    if (body.month != null) update.month = body.month;
+    if (body.status != null) update.status = body.status;
+    if (body.method != null) update.method = body.method;
+    if (body.dueDate != null) update.dueDate = body.dueDate;
+    if (body.paidOn != null) update.paidOn = body.paidOn;
+    if (body.notes != null) update.notes = body.notes;
+    if (body.invoiceNo != null) update.invoiceNo = body.invoiceNo;
+
+    const doc = await Billing.findByIdAndUpdate(id, update, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!doc) {
+      return res.status(404).json({ ok: false, error: "Payment not found" });
+    }
+
+    return res.json({ ok: true, payment: doc });
+  } catch (err) {
+    console.error("PUT /api/billing/:id error:", err);
+    return res
+      .status(500)
+      .json({ ok: false, error: "Failed to update payment" });
+  }
+});
+
+
+app.delete("/api/billing/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doc = await Billing.findByIdAndDelete(id);
+
+    if (!doc) {
+      return res.status(404).json({ ok: false, error: "Payment not found" });
+    }
+
+    return res.json({ ok: true, message: "Payment deleted successfully" });
+  } catch (err) {
+    console.error("DELETE /api/billing/:id error:", err);
+    return res
+      .status(500)
+      .json({ ok: false, error: "Failed to delete payment" });
   }
 });
 
@@ -613,7 +672,6 @@ app.delete("/api/rooms/:id", verifyToken, async (req, res) => {
 
 
 app.get("/", (req, res) => res.send("Hostel API Running"));
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
