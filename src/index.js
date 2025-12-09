@@ -1,6 +1,4 @@
-
 require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -13,8 +11,9 @@ const Maintenance = require("./models/Maintenance");
 const Billing = require("./models/Billing");
 const User = require("./models/User");
 
+const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
-const { verifyToken } = require("./middleware/auth"); 
+const verifyToken = require("./middleware/auth");
 
 const app = express();
 
@@ -40,15 +39,9 @@ async function hashPassword(plain) {
   return bcrypt.hash(plain, salt);
 }
 
-
 function createToken(user) {
   return jwt.sign(
-    {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role, 
-    },
+    { id: user._id, email: user.email, name: user.name, role: user.role },
     JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -61,16 +54,17 @@ function safeUser(u) {
   return obj;
 }
 
+
 async function ensureDefaultAdmin() {
   try {
     const email = "admin@hostel.com";
-    const existing = await User.findOne({ email });
+    const existing = await User.findOne({ email: email.toLowerCase() });
 
     if (!existing) {
       const hashed = await hashPassword("admin123");
       await User.create({
         name: "Admin User",
-        email,
+        email: email.toLowerCase(),
         password: hashed,
         role: "Admin",
         status: "Active",
@@ -82,6 +76,7 @@ async function ensureDefaultAdmin() {
   }
 }
 
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
@@ -89,7 +84,6 @@ mongoose
     await ensureDefaultAdmin();
   })
   .catch((err) => console.error("MongoDB Error:", err));
-
 
 
 app.post("/api/auth/register", async (req, res) => {
@@ -127,37 +121,8 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
 
-    if (!email || !password) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Email and password are required" });
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase() });
-
-    if (!user || !user.password) {
-      return res.status(401).json({ ok: false, error: "Invalid login" });
-    }
-
-    const match = await bcrypt.compare(String(password), String(user.password));
-    if (!match) {
-      return res.status(401).json({ ok: false, error: "Invalid login" });
-    }
-
-    return res.json({
-      ok: true,
-      user: safeUser(user),
-      token: createToken(user),
-    });
-  } catch (err) {
-    console.error("POST /api/auth/login error:", err);
-    return res.status(500).json({ ok: false, error: "Login failed" });
-  }
-});
+app.use("/api/auth", authRoutes);
 
 
 app.get("/api/me", verifyToken, async (req, res) => {
@@ -174,9 +139,7 @@ app.get("/api/me", verifyToken, async (req, res) => {
 });
 
 
-
 app.use("/api/users", userRoutes);
-
 
 
 app.post("/api/payments", async (req, res) => {
@@ -190,7 +153,6 @@ app.post("/api/payments", async (req, res) => {
       .json({ ok: false, error: "Failed to record payment" });
   }
 });
-
 
 
 app.get("/api/billing", async (req, res) => {
@@ -259,7 +221,6 @@ app.patch("/api/billing/:id/pay", async (req, res) => {
 });
 
 
-
 app.get("/api/maintenance", async (req, res) => {
   try {
     const data = await Maintenance.find().sort({ createdAt: -1 });
@@ -295,7 +256,6 @@ app.post("/api/maintenance", async (req, res) => {
 });
 
 
-
 app.get("/api/residents", async (req, res) => {
   try {
     const data = await Resident.find().sort({ createdAt: -1 });
@@ -328,7 +288,6 @@ app.post("/api/residents", async (req, res) => {
 });
 
 
-
 app.get("/api/rooms", async (req, res) => {
   try {
     const data = await Room.find().sort({ number: 1 });
@@ -338,7 +297,6 @@ app.get("/api/rooms", async (req, res) => {
     return res.status(500).json({ ok: false, error: "Failed to load rooms" });
   }
 });
-
 
 
 app.get("/", (req, res) => res.send("Hostel API Running"));
