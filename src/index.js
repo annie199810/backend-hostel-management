@@ -54,7 +54,6 @@ function safeUser(u) {
   return obj;
 }
 
-
 async function ensureDefaultAdmin() {
   try {
     const email = "admin@hostel.com";
@@ -76,7 +75,6 @@ async function ensureDefaultAdmin() {
   }
 }
 
-
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
@@ -84,6 +82,7 @@ mongoose
     await ensureDefaultAdmin();
   })
   .catch((err) => console.error("MongoDB Error:", err));
+
 
 
 app.post("/api/auth/register", async (req, res) => {
@@ -121,9 +120,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-
 app.use("/api/auth", authRoutes);
-
 
 app.get("/api/me", verifyToken, async (req, res) => {
   try {
@@ -139,7 +136,9 @@ app.get("/api/me", verifyToken, async (req, res) => {
 });
 
 
+
 app.use("/api/users", userRoutes);
+
 
 
 app.post("/api/payments", async (req, res) => {
@@ -153,6 +152,7 @@ app.post("/api/payments", async (req, res) => {
       .json({ ok: false, error: "Failed to record payment" });
   }
 });
+
 
 
 app.get("/api/billing", async (req, res) => {
@@ -221,6 +221,7 @@ app.patch("/api/billing/:id/pay", async (req, res) => {
 });
 
 
+
 app.get("/api/maintenance", async (req, res) => {
   try {
     const data = await Maintenance.find().sort({ createdAt: -1 });
@@ -254,6 +255,7 @@ app.post("/api/maintenance", async (req, res) => {
       .json({ ok: false, error: "Failed to create request" });
   }
 });
+
 
 
 app.get("/api/residents", async (req, res) => {
@@ -297,6 +299,99 @@ app.get("/api/rooms", async (req, res) => {
     return res.status(500).json({ ok: false, error: "Failed to load rooms" });
   }
 });
+
+
+app.post("/api/rooms", verifyToken, async (req, res) => {
+  try {
+    const { number, type, status, pricePerMonth } = req.body || {};
+
+    if (!number || pricePerMonth == null) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Room number and price are required" });
+    }
+
+    const existing = await Room.findOne({ number: String(number) });
+    if (existing) {
+      return res
+        .status(409)
+        .json({ ok: false, error: "A room with this number already exists" });
+    }
+
+    const room = await Room.create({
+      number: String(number),
+      type: type || "single",
+      status: status || "available",
+      pricePerMonth: Number(pricePerMonth),
+      occupants: [],
+    });
+
+    return res.status(201).json({ ok: true, room });
+  } catch (err) {
+    console.error("POST /api/rooms error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to create room" });
+  }
+});
+
+
+app.put("/api/rooms/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { number, type, status, pricePerMonth } = req.body || {};
+
+    const update = {};
+    if (number != null) update.number = String(number);
+    if (type != null) update.type = type;
+    if (status != null) update.status = status;
+    if (pricePerMonth != null) update.pricePerMonth = Number(pricePerMonth);
+
+   
+    if (number != null) {
+      const clash = await Room.findOne({
+        number: String(number),
+        _id: { $ne: id },
+      });
+      if (clash) {
+        return res.status(409).json({
+          ok: false,
+          error: "Another room with this number already exists",
+        });
+      }
+    }
+
+    const room = await Room.findByIdAndUpdate(id, update, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!room) {
+      return res.status(404).json({ ok: false, error: "Room not found" });
+    }
+
+    return res.json({ ok: true, room });
+  } catch (err) {
+    console.error("PUT /api/rooms/:id error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to update room" });
+  }
+});
+
+
+app.delete("/api/rooms/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const room = await Room.findByIdAndDelete(id);
+
+    if (!room) {
+      return res.status(404).json({ ok: false, error: "Room not found" });
+    }
+
+    return res.json({ ok: true, message: "Room deleted successfully" });
+  } catch (err) {
+    console.error("DELETE /api/rooms/:id error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to delete room" });
+  }
+});
+
 
 
 app.get("/", (req, res) => res.send("Hostel API Running"));
