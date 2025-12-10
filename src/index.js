@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -19,6 +18,7 @@ const verifyToken = require("./middleware/auth");
 const app = express();
 
 
+
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
 const corsOptions = {
@@ -33,6 +33,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
+
 
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
@@ -56,6 +57,7 @@ function safeUser(u) {
   delete obj.password;
   return obj;
 }
+
 
 
 async function removeFromRoom(roomNumber, residentId) {
@@ -98,6 +100,7 @@ async function addToRoom(roomNumber, resident) {
 }
 
 
+
 async function ensureDefaultAdmin() {
   try {
     const email = "admin@hostel.com";
@@ -118,6 +121,7 @@ async function ensureDefaultAdmin() {
     console.error("ensureDefaultAdmin error:", err);
   }
 }
+
 
 
 mongoose
@@ -164,7 +168,9 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
+
 app.use("/api/auth", authRoutes);
+
 
 app.get("/api/me", verifyToken, async (req, res) => {
   try {
@@ -175,16 +181,21 @@ app.get("/api/me", verifyToken, async (req, res) => {
     return res.json({ ok: true, user: safeUser(user) });
   } catch (err) {
     console.error("GET /api/me error:", err);
-    return res.status(500).json({ ok: false, error: "Failed to load profile" });
+    return res
+      .status(500)
+      .json({ ok: false, error: "Failed to load profile" });
   }
 });
 
+
 app.use("/api/users", userRoutes);
+
 
 
 app.post("/api/payments", async (req, res) => {
   try {
     console.log("Received payment payload:", req.body);
+   
     return res.json({ ok: true });
   } catch (err) {
     console.error("POST /api/payments error:", err);
@@ -193,6 +204,7 @@ app.post("/api/payments", async (req, res) => {
       .json({ ok: false, error: "Failed to record payment" });
   }
 });
+
 
 
 app.get("/api/billing", verifyToken, async (req, res) => {
@@ -237,7 +249,6 @@ app.post("/api/billing", verifyToken, async (req, res) => {
   }
 });
 
-
 app.patch("/api/billing/:id/pay", verifyToken, async (req, res) => {
   try {
     const id = req.params.id;
@@ -260,7 +271,6 @@ app.patch("/api/billing/:id/pay", verifyToken, async (req, res) => {
     return res.status(500).json({ ok: false, error: "Failed to update" });
   }
 });
-
 
 app.put("/api/billing/:id", verifyToken, async (req, res) => {
   try {
@@ -297,7 +307,6 @@ app.put("/api/billing/:id", verifyToken, async (req, res) => {
   }
 });
 
-
 app.delete("/api/billing/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -315,6 +324,7 @@ app.delete("/api/billing/:id", verifyToken, async (req, res) => {
       .json({ ok: false, error: "Failed to delete payment" });
   }
 });
+
 
 
 app.get("/api/maintenance", verifyToken, async (req, res) => {
@@ -449,6 +459,7 @@ app.post("/api/maintenance/:id/status", verifyToken, async (req, res) => {
 });
 
 
+
 app.get("/api/residents", verifyToken, async (req, res) => {
   try {
     const data = await Resident.find().sort({ createdAt: -1 });
@@ -572,6 +583,7 @@ app.delete("/api/residents/:id", verifyToken, async (req, res) => {
 });
 
 
+
 app.get("/api/rooms", async (req, res) => {
   try {
     const data = await Room.find().sort({ number: 1 });
@@ -610,7 +622,9 @@ app.post("/api/rooms", verifyToken, async (req, res) => {
     return res.status(201).json({ ok: true, room });
   } catch (err) {
     console.error("POST /api/rooms error:", err);
-    return res.status(500).json({ ok: false, error: "Failed to create room" });
+    return res
+      .status(500)
+      .json({ ok: false, error: "Failed to create room" });
   }
 });
 
@@ -650,7 +664,9 @@ app.put("/api/rooms/:id", verifyToken, async (req, res) => {
     return res.json({ ok: true, room });
   } catch (err) {
     console.error("PUT /api/rooms/:id error:", err);
-    return res.status(500).json({ ok: false, error: "Failed to update room" });
+    return res
+      .status(500)
+      .json({ ok: false, error: "Failed to update room" });
   }
 });
 
@@ -666,12 +682,17 @@ app.delete("/api/rooms/:id", verifyToken, async (req, res) => {
     return res.json({ ok: true, message: "Room deleted successfully" });
   } catch (err) {
     console.error("DELETE /api/rooms/:id error:", err);
-    return res.status(500).json({ ok: false, error: "Failed to delete room" });
+    return res
+      .status(500)
+      .json({ ok: false, error: "Failed to delete room" });
   }
 });
 
 
+
 app.get("/", (req, res) => res.send("Hostel API Running"));
+
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
