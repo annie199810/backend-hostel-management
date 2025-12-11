@@ -17,21 +17,26 @@ const verifyToken = require("./middleware/auth");
 
 const app = express();
 
-
-
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+
 
 const corsOptions = {
   origin: [
     CLIENT_ORIGIN,
     "http://127.0.0.1:5173",
-    "https://hostelmanagementttt.netlify.app",
+    "http://localhost:5173",
+    "https://hostelmanagementttt.netlify.app"
   ],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+  allowedHeaders: "Content-Type,Authorization",
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); 
+
 app.use(express.json());
 
 
@@ -57,8 +62,6 @@ function safeUser(u) {
   delete obj.password;
   return obj;
 }
-
-
 
 async function removeFromRoom(roomNumber, residentId) {
   if (!roomNumber) return;
@@ -99,8 +102,6 @@ async function addToRoom(roomNumber, resident) {
   await room.save();
 }
 
-
-
 async function ensureDefaultAdmin() {
   try {
     const email = "admin@hostel.com";
@@ -122,8 +123,6 @@ async function ensureDefaultAdmin() {
   }
 }
 
-
-
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
@@ -131,7 +130,6 @@ mongoose
     await ensureDefaultAdmin();
   })
   .catch((err) => console.error("MongoDB Error:", err));
-
 
 app.post("/api/auth/register", async (req, res) => {
   try {
@@ -168,9 +166,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-
 app.use("/api/auth", authRoutes);
-
 
 app.get("/api/me", verifyToken, async (req, res) => {
   try {
@@ -187,15 +183,12 @@ app.get("/api/me", verifyToken, async (req, res) => {
   }
 });
 
-
 app.use("/api/users", userRoutes);
-
-
 
 app.post("/api/payments", async (req, res) => {
   try {
     console.log("Received payment payload:", req.body);
-   
+
     return res.json({ ok: true });
   } catch (err) {
     console.error("POST /api/payments error:", err);
@@ -204,8 +197,6 @@ app.post("/api/payments", async (req, res) => {
       .json({ ok: false, error: "Failed to record payment" });
   }
 });
-
-
 
 app.get("/api/billing", verifyToken, async (req, res) => {
   try {
@@ -324,8 +315,6 @@ app.delete("/api/billing/:id", verifyToken, async (req, res) => {
       .json({ ok: false, error: "Failed to delete payment" });
   }
 });
-
-
 
 app.get("/api/maintenance", verifyToken, async (req, res) => {
   try {
@@ -458,8 +447,6 @@ app.post("/api/maintenance/:id/status", verifyToken, async (req, res) => {
   }
 });
 
-
-
 app.get("/api/residents", verifyToken, async (req, res) => {
   try {
     const data = await Resident.find().sort({ createdAt: -1 });
@@ -582,8 +569,6 @@ app.delete("/api/residents/:id", verifyToken, async (req, res) => {
   }
 });
 
-
-
 app.get("/api/rooms", async (req, res) => {
   try {
     const data = await Room.find().sort({ number: 1 });
@@ -689,10 +674,9 @@ app.delete("/api/rooms/:id", verifyToken, async (req, res) => {
 });
 
 
+app.get("/wake", (req, res) => res.send("awake"));
 
 app.get("/", (req, res) => res.send("Hostel API Running"));
-
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
