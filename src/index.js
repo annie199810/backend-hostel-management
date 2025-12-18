@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-
+const roomRoutes = require("./routes/rooms");
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const residentRoutes = require("./routes/residents");
@@ -24,7 +24,7 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("Hostel Management API running");
 });
-
+app.use("/api/rooms", roomRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/residents", residentRoutes);
