@@ -1,44 +1,52 @@
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 
 const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/users");
 const residentRoutes = require("./routes/residents");
 const billingRoutes = require("./routes/billing");
-const maintenanceRoutes = require("./routes/maintenance");
-const userRoutes = require("./routes/users");
+const paymentRoutes = require("./routes/payments");
 
 const app = express();
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://hostelmanagementttt.netlify.app",
-    ],
-    credentials: true,
-  })
-);
+/* ---------- MIDDLEWARE ---------- */
+app.use(cors({
+  origin: "*",
+  credentials: true
+}));
 
 app.use(express.json());
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected"))
-  .catch((err) => console.error("Mongo error:", err));
+/* ---------- ROUTES ---------- */
+app.get("/", (req, res) => {
+  res.send("Hostel Management API running");
+});
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/residents", residentRoutes);
 app.use("/api/billing", billingRoutes);
-app.use("/api/maintenance", maintenanceRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/payments", paymentRoutes);
 
-app.get("/", (req, res) => {
-  res.send("Hostel Management API Running");
+/* ---------- 404 HANDLER ---------- */
+app.use((req, res) => {
+  res.status(404).json({ ok: false, message: "Route not found" });
 });
 
+/* ---------- SERVER START ---------- */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
+
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("MongoDB Connected");
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+  });
