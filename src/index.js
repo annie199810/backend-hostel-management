@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -37,7 +36,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
@@ -62,36 +60,19 @@ function safeUser(u) {
   return obj;
 }
 
-async function removeFromRoom(roomNumber, residentId) {
-  if (!roomNumber) return;
-
-  const room = await Room.findOne({ number: roomNumber });
-  if (!room) return;
-
-  room.occupants = (room.occupants || []).filter(function (occ) {
-    return String(occ.residentId) !== String(residentId);
-  });
-
-  if (!room.occupants.length) {
-    room.status = "available";
-  }
-
-  await room.save();
-}
-
 async function addToRoom(roomNumber, resident) {
   if (!roomNumber || !resident) return;
-
   const room = await Room.findOne({ number: roomNumber });
   if (!room) return;
 
-  const already = (room.occupants || []).some(function (occ) {
-    return String(occ.residentId) === String(resident._id);
-  });
+  room.occupants = room.occupants || [];
+  const exists = room.occupants.some(
+    (o) => String(o.residentId) === String(resident._id)
+  );
 
-  if (!already) {
+  if (!exists) {
     room.occupants.push({
-      residentId: String(resident._id),
+      residentId: resident._id,
       name: resident.name,
       checkIn: resident.checkIn,
     });
@@ -102,46 +83,36 @@ async function addToRoom(roomNumber, resident) {
 }
 
 async function ensureDefaultAdmin() {
-  try {
-    const email = "admin@hostel.com";
-    const existing = await User.findOne({ email: email.toLowerCase() });
-
-    if (!existing) {
-      const hashed = await hashPassword("admin123");
-      await User.create({
-        name: "Admin User",
-        email: email.toLowerCase(),
-        password: hashed,
-        role: "Admin",
-        status: "Active",
-      });
-      console.log("Seeded default admin user:", email);
-    } else {
-      console.log("Admin already exists:", email);
-    }
-  } catch (err) {
-    console.error("ensureDefaultAdmin error:", err);
+  const email = "admin@hostel.com";
+  const exists = await User.findOne({ email });
+  if (!exists) {
+    const hashed = await hashPassword("admin123");
+    await User.create({
+      name: "Admin User",
+      email,
+      password: hashed,
+      role: "Admin",
+      status: "Active",
+    });
+    console.log("Seeded default admin:", email);
+  } else {
+    console.log("Admin already exists:", email);
   }
 }
 
-
 async function ensureDemoStaff() {
-  try {
-    const email = "staff@hostel.com";
-    const existing = await User.findOne({ email });
-    if (!existing) {
-      const hashed = await hashPassword("staff1234");
-      await User.create({
-        name: "Demo Staff",
-        email,
-        password: hashed,
-        role: "Staff",
-        status: "Active",
-      });
-      console.log("Seeded demo staff:", email);
-    }
-  } catch (e) {
-    console.error("ensureDemoStaff error:", e);
+  const email = "staff@hostel.com";
+  const exists = await User.findOne({ email });
+  if (!exists) {
+    const hashed = await hashPassword("staff1234");
+    await User.create({
+      name: "Demo Staff",
+      email,
+      password: hashed,
+      role: "Staff",
+      status: "Active",
+    });
+    console.log("Seeded demo staff:", email);
   }
 }
 
@@ -154,391 +125,95 @@ mongoose
   })
   .catch((err) => console.error("MongoDB Error:", err));
 
+/* ================= AUTH ================= */
 
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { name, email, password } = req.body || {};
-
-    if (!name || !email || !password) {
+    if (!name || !email || !password)
       return res.status(400).json({ ok: false, error: "Missing fields" });
-    }
 
     const exists = await User.findOne({ email: email.toLowerCase() });
-    if (exists) {
-      return res
-        .status(409)
-        .json({ ok: false, error: "Email already exists" });
-    }
+    if (exists)
+      return res.status(409).json({ ok: false, error: "Email already exists" });
 
     const hashed = await hashPassword(password);
-
-   
     const user = await User.create({
       name,
       email: email.toLowerCase(),
       password: hashed,
-      role: "Resident", 
+      role: "Staff",
       status: "Active",
     });
 
-    return res.json({
-      ok: true,
-      user: safeUser(user),
-      token: createToken(user),
-    });
+    res.json({ ok: true, user: safeUser(user), token: createToken(user) });
   } catch (err) {
-    console.error("POST /api/auth/register error:", err);
-    return res.status(500).json({ ok: false, error: "Register failed" });
+    console.error("Register error:", err);
+    res.status(500).json({ ok: false, error: "Register failed" });
   }
 });
-
 
 app.use("/api/auth", authRoutes);
 
-
 app.get("/api/me", verifyToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ ok: false, error: "User not found" });
-    }
-    return res.json({ ok: true, user: safeUser(user) });
-  } catch (err) {
-    console.error("GET /api/me error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to load profile" });
-  }
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ ok: false });
+  res.json({ ok: true, user: safeUser(user) });
 });
-
 
 app.use("/api/users", userRoutes);
 
+/* ================= ROOMS (FIXED) ================= */
 
-app.post("/api/payments", async (req, res) => {
+app.get("/api/rooms", verifyToken, async (req, res) => {
   try {
-    console.log("Received payment payload:", req.body);
-    return res.json({ ok: true });
+    const rooms = await Room.find().sort({ number: 1 });
+    res.json({ ok: true, rooms });
   } catch (err) {
-    console.error("POST /api/payments error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to record payment" });
+    console.error("Rooms load error:", err);
+    res.status(500).json({ ok: false, error: "Failed to load rooms" });
   }
 });
 
+/* ================= BILLING ================= */
 
 app.get("/api/billing", verifyToken, async (req, res) => {
-  try {
-    const data = await Billing.find().sort({ createdAt: -1 });
-    return res.json({ ok: true, payments: data });
-  } catch (err) {
-    console.error("GET /api/billing error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to load billing" });
-  }
+  const data = await Billing.find().sort({ createdAt: -1 });
+  res.json({ ok: true, payments: data });
 });
-
 
 app.post("/api/billing", verifyToken, requireRole("Admin", "Staff"), async (req, res) => {
-  try {
-    const { residentName, roomNumber, amount, month } = req.body || {};
-
-    if (!residentName || !roomNumber || amount == null || !month) {
-      return res.status(400).json({ ok: false, error: "Missing fields" });
-    }
-
-    const doc = await Billing.create({
-      residentName,
-      roomNumber,
-      amount,
-      month,
-      status: req.body.status || "Pending",
-      method: req.body.method || "Cash",
-      dueDate: req.body.dueDate || "",
-      paidOn: req.body.paidOn || "",
-      notes: req.body.notes || "",
-      invoiceNo: req.body.invoiceNo || "",
-    });
-
-    return res.json({ ok: true, payment: doc });
-  } catch (err) {
-    console.error("POST /api/billing error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to create payment" });
-  }
+  const doc = await Billing.create(req.body);
+  res.json({ ok: true, payment: doc });
 });
 
-
-app.patch("/api/billing/:id/pay", verifyToken, requireRole("Admin", "Staff"), async (req, res) => {
-  try {
-    const id = req.params.id;
-    const updated = await Billing.findByIdAndUpdate(
-      id,
-      {
-        status: "Paid",
-        paidOn: new Date().toISOString().slice(0, 10),
-      },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({ ok: false, error: "Not found" });
-    }
-
-    return res.json({ ok: true, payment: updated });
-  } catch (err) {
-    console.error("PATCH /api/billing/:id/pay error:", err);
-    return res.status(500).json({ ok: false, error: "Failed to update" });
-  }
-});
-
-app.put("/api/billing/:id", verifyToken, requireRole("Admin", "Staff"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const body = req.body || {};
-
-    const update = {};
-    if (body.residentName != null) update.residentName = body.residentName;
-    if (body.roomNumber != null) update.roomNumber = body.roomNumber;
-    if (body.amount != null) update.amount = body.amount;
-    if (body.month != null) update.month = body.month;
-    if (body.status != null) update.status = body.status;
-    if (body.method != null) update.method = body.method;
-    if (body.dueDate != null) update.dueDate = body.dueDate;
-    if (body.paidOn != null) update.paidOn = body.paidOn;
-    if (body.notes != null) update.notes = body.notes;
-    if (body.invoiceNo != null) update.invoiceNo = body.invoiceNo;
-
-    const doc = await Billing.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!doc) {
-      return res.status(404).json({ ok: false, error: "Payment not found" });
-    }
-
-    return res.json({ ok: true, payment: doc });
-  } catch (err) {
-    console.error("PUT /api/billing/:id error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to update payment" });
-  }
-});
-
-app.delete("/api/billing/:id", verifyToken, requireRole("Admin", "Staff"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const doc = await Billing.findByIdAndDelete(id);
-
-    if (!doc) {
-      return res.status(404).json({ ok: false, error: "Payment not found" });
-    }
-
-    return res.json({ ok: true, message: "Payment deleted successfully" });
-  } catch (err) {
-    console.error("DELETE /api/billing/:id error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to delete payment" });
-  }
-});
-
+/* ================= MAINTENANCE ================= */
 
 app.get("/api/maintenance", verifyToken, async (req, res) => {
-  try {
-    const data = await Maintenance.find().sort({ createdAt: -1 });
-    return res.json({ ok: true, requests: data });
-  } catch (err) {
-    console.error("GET /api/maintenance error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to load maintenance" });
-  }
+  const data = await Maintenance.find().sort({ createdAt: -1 });
+  res.json({ ok: true, requests: data });
 });
 
-
-app.post("/api/maintenance", verifyToken, async (req, res) => {
-  try {
-    const {
-      roomNumber,
-      issue,
-      type = "Others",
-      priority = "Medium",
-      status = "Open",
-      reportedBy = "",
-      reportedOn,
-    } = req.body || {};
-
-    if (!roomNumber || !issue) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Room number and issue are required" });
-    }
-
-    const doc = await Maintenance.create({
-      roomNumber: String(roomNumber),
-      issue,
-      type,
-      priority,
-      status,
-      reportedBy,
-      reportedOn: reportedOn || new Date().toISOString().slice(0, 10),
-    });
-
-    return res.status(201).json({ ok: true, request: doc });
-  } catch (err) {
-    console.error("POST /api/maintenance error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to create request" });
-  }
-});
-
-
-app.put("/api/maintenance/:id", verifyToken, requireRole("Admin", "Staff"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      roomNumber,
-      issue,
-      type,
-      priority,
-      status,
-      reportedBy,
-      reportedOn,
-    } = req.body || {};
-
-    const update = {};
-    if (roomNumber != null) update.roomNumber = String(roomNumber);
-    if (issue != null) update.issue = issue;
-    if (type != null) update.type = type;
-    if (priority != null) update.priority = priority;
-    if (status != null) update.status = status;
-    if (reportedBy != null) update.reportedBy = reportedBy;
-    if (reportedOn != null) update.reportedOn = reportedOn;
-
-    const doc = await Maintenance.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!doc) {
-      return res.status(404).json({ ok: false, error: "Request not found" });
-    }
-
-    return res.json({ ok: true, request: doc });
-  } catch (err) {
-    console.error("PUT /api/maintenance/:id error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to update request" });
-  }
-});
-
-app.delete("/api/maintenance/:id", verifyToken, requireRole("Admin", "Staff"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const doc = await Maintenance.findByIdAndDelete(id);
-
-    if (!doc) {
-      return res.status(404).json({ ok: false, error: "Request not found" });
-    }
-
-    return res.json({ ok: true, message: "Request deleted" });
-  } catch (err) {
-    console.error("DELETE /api/maintenance/:id error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to delete request" });
-  }
-});
-
-app.post("/api/maintenance/:id/status", verifyToken, requireRole("Admin", "Staff"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status = "Open" } = req.body || {};
-
-    const doc = await Maintenance.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    );
-
-    if (!doc) {
-      return res.status(404).json({ ok: false, error: "Request not found" });
-    }
-
-    return res.json({ ok: true, request: doc });
-  } catch (err) {
-    console.error("POST /api/maintenance/:id/status error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to update status" });
-  }
-});
-
+/* ================= RESIDENTS ================= */
 
 app.get("/api/residents", verifyToken, async (req, res) => {
-  try {
-    const data = await Resident.find().sort({ createdAt: -1 });
-    return res.json({ ok: true, residents: data });
-  } catch (err) {
-    console.error("GET /api/residents error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to load residents" });
-  }
+  const data = await Resident.find().sort({ createdAt: -1 });
+  res.json({ ok: true, residents: data });
 });
 
 app.post("/api/residents", verifyToken, async (req, res) => {
-  try {
-    const { name, roomNumber, phone, status } = req.body || {};
-
-    if (!name || !roomNumber || !phone) {
-      return res.status(400).json({
-        ok: false,
-        error: "Name, room number and phone are required",
-      });
-    }
-
-    const nowDate = new Date().toISOString().slice(0, 10);
-
-    const resident = await Resident.create({
-      name,
-      roomNumber,
-      phone,
-      status: status || "active",
-      checkIn: nowDate,
-    });
-
-    try {
-      if ((resident.status || "active") === "active") {
-        await addToRoom(roomNumber, resident);
-      }
-    } catch (e) {
-      console.warn("POST /api/residents room sync warning:", e);
-    }
-
-    return res.json({ ok: true, resident });
-  } catch (err) {
-    console.error("POST /api/residents error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to create resident" });
-  }
+  const resident = await Resident.create({
+    ...req.body,
+    checkIn: new Date().toISOString().slice(0, 10),
+  });
+  await addToRoom(resident.roomNumber, resident);
+  res.json({ ok: true, resident });
 });
 
-
+/* ================= HEALTH ================= */
 
 app.get("/wake", (req, res) => res.send("awake"));
 app.get("/", (req, res) => res.send("Hostel API Running"));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
+app.listen(PORT, () => console.log("Server running on port", PORT));
