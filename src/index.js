@@ -18,150 +18,116 @@ const requireRole = require("./middleware/requireRole");
 
 const app = express();
 
+/* ================= CORS ================= */
+
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
-const corsOptions = {
-  origin: [
-    CLIENT_ORIGIN,
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "https://hostelmanagementttt.netlify.app",
-  ],
-  methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
-  allowedHeaders: "Content-Type,Authorization",
-  credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
-};
+app.use(
+  cors({
+    origin: [
+      CLIENT_ORIGIN,
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://hostelmanagementttt.netlify.app",
+    ],
+    credentials: true,
+  })
+);
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
 app.use(express.json());
 
+/* ================= JWT ================= */
+
 const JWT_SECRET = process.env.JWT_SECRET || "secret_key";
+
+function createToken(user) {
+  return jwt.sign(
+    { id: user._id, email: user.email, role: user.role },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+}
 
 async function hashPassword(plain) {
   const salt = await bcrypt.genSalt(10);
   return bcrypt.hash(plain, salt);
 }
 
-function createToken(user) {
-  return jwt.sign(
-    { id: user._id, email: user.email, name: user.name, role: user.role },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-}
-
 function safeUser(u) {
   if (!u) return null;
-  const obj = u.toObject ? u.toObject() : { ...u };
+  const obj = u.toObject();
   delete obj.password;
   return obj;
 }
 
-async function addToRoom(roomNumber, resident) {
-  if (!roomNumber || !resident) return;
-  const room = await Room.findOne({ number: roomNumber });
-  if (!room) return;
-
-  room.occupants = room.occupants || [];
-  const exists = room.occupants.some(
-    (o) => String(o.residentId) === String(resident._id)
-  );
-
-  if (!exists) {
-    room.occupants.push({
-      residentId: resident._id,
-      name: resident.name,
-      checkIn: resident.checkIn,
-    });
-  }
-
-  room.status = "occupied";
-  await room.save();
-}
-
-async function ensureDefaultAdmin() {
-  const email = "admin@hostel.com";
-  const exists = await User.findOne({ email });
-  if (!exists) {
-    const hashed = await hashPassword("admin123");
-    await User.create({
-      name: "Admin User",
-      email,
-      password: hashed,
-      role: "Admin",
-      status: "Active",
-    });
-    console.log("Seeded default admin:", email);
-  } else {
-    console.log("Admin already exists:", email);
-  }
-}
-
-async function ensureDemoStaff() {
-  const email = "staff@hostel.com";
-  const exists = await User.findOne({ email });
-  if (!exists) {
-    const hashed = await hashPassword("staff1234");
-    await User.create({
-      name: "Demo Staff",
-      email,
-      password: hashed,
-      role: "Staff",
-      status: "Active",
-    });
-    console.log("Seeded demo staff:", email);
-  }
-}
+/* ================= DB ================= */
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
     console.log("MongoDB Connected");
-    await ensureDefaultAdmin();
-    await ensureDemoStaff();
+
+    // Default Admin
+    const adminEmail = "admin@hostel.com";
+    const adminExists = await User.findOne({ email: adminEmail });
+    if (!adminExists) {
+      await User.create({
+        name: "Admin User",
+        email: adminEmail,
+        password: await hashPassword("admin123"),
+        role: "Admin",
+        status: "Active",
+      });
+    }
+
+    // Demo Staff
+    const staffEmail = "staff@hostel.com";
+    const staffExists = await User.findOne({ email: staffEmail });
+    if (!staffExists) {
+      await User.create({
+        name: "Demo Staff",
+        email: staffEmail,
+        password: await hashPassword("staff1234"),
+        role: "Staff",
+        status: "Active",
+      });
+    }
   })
-  .catch((err) => console.error("MongoDB Error:", err));
+  .catch((err) => console.error("MongoDB error", err));
 
 /* ================= AUTH ================= */
 
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body || {};
+    const { name, email, password } = req.body;
+
     if (!name || !email || !password)
       return res.status(400).json({ ok: false, error: "Missing fields" });
 
-    const exists = await User.findOne({ email: email.toLowerCase() });
-    if (exists)
-      return res.status(409).json({ ok: false, error: "Email already exists" });
+    if (await User.findOne({ email }))
+      return res.status(409).json({ ok: false, error: "Email exists" });
 
-    const hashed = await hashPassword(password);
     const user = await User.create({
       name,
-      email: email.toLowerCase(),
-      password: hashed,
+      email,
+      password: await hashPassword(password),
       role: "Staff",
       status: "Active",
     });
 
     res.json({ ok: true, user: safeUser(user), token: createToken(user) });
-  } catch (err) {
-    console.error("Register error:", err);
+  } catch (e) {
     res.status(500).json({ ok: false, error: "Register failed" });
   }
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
 app.get("/api/me", verifyToken, async (req, res) => {
   const user = await User.findById(req.user.id);
-  if (!user) return res.status(404).json({ ok: false });
   res.json({ ok: true, user: safeUser(user) });
 });
-
-app.use("/api/users", userRoutes);
 
 /* ================= ROOMS (FIXED) ================= */
 
@@ -169,36 +135,16 @@ app.get("/api/rooms", verifyToken, async (req, res) => {
   try {
     const rooms = await Room.find().sort({ number: 1 });
     res.json({ ok: true, rooms });
-  } catch (err) {
-    console.error("Rooms load error:", err);
-    res.status(500).json({ ok: false, error: "Failed to load rooms" });
+  } catch {
+    res.status(500).json({ ok: false, error: "Rooms API error" });
   }
-});
-
-/* ================= BILLING ================= */
-
-app.get("/api/billing", verifyToken, async (req, res) => {
-  const data = await Billing.find().sort({ createdAt: -1 });
-  res.json({ ok: true, payments: data });
-});
-
-app.post("/api/billing", verifyToken, requireRole("Admin", "Staff"), async (req, res) => {
-  const doc = await Billing.create(req.body);
-  res.json({ ok: true, payment: doc });
-});
-
-/* ================= MAINTENANCE ================= */
-
-app.get("/api/maintenance", verifyToken, async (req, res) => {
-  const data = await Maintenance.find().sort({ createdAt: -1 });
-  res.json({ ok: true, requests: data });
 });
 
 /* ================= RESIDENTS ================= */
 
 app.get("/api/residents", verifyToken, async (req, res) => {
-  const data = await Resident.find().sort({ createdAt: -1 });
-  res.json({ ok: true, residents: data });
+  const residents = await Resident.find().sort({ createdAt: -1 });
+  res.json({ ok: true, residents });
 });
 
 app.post("/api/residents", verifyToken, async (req, res) => {
@@ -206,14 +152,63 @@ app.post("/api/residents", verifyToken, async (req, res) => {
     ...req.body,
     checkIn: new Date().toISOString().slice(0, 10),
   });
-  await addToRoom(resident.roomNumber, resident);
   res.json({ ok: true, resident });
+});
+
+/* ================= BILLING ================= */
+
+app.get("/api/billing", verifyToken, async (req, res) => {
+  const payments = await Billing.find().sort({ createdAt: -1 });
+  res.json({ ok: true, payments });
+});
+
+app.post(
+  "/api/billing",
+  verifyToken,
+  requireRole("Admin", "Staff"),
+  async (req, res) => {
+    const payment = await Billing.create(req.body);
+    res.json({ ok: true, payment });
+  }
+);
+
+/* ================= MAINTENANCE ================= */
+
+app.get("/api/maintenance", verifyToken, async (req, res) => {
+  const requests = await Maintenance.find().sort({ createdAt: -1 });
+  res.json({ ok: true, requests });
+});
+
+/* ================= REPORTS (FIXED) ================= */
+
+app.get("/api/reports", verifyToken, async (req, res) => {
+  try {
+    const totalRooms = await Room.countDocuments();
+    const totalResidents = await Resident.countDocuments();
+    const totalRevenue = await Billing.aggregate([
+      { $match: { status: "Paid" } },
+      { $group: { _id: null, sum: { $sum: "$amount" } } },
+    ]);
+
+    res.json({
+      ok: true,
+      report: {
+        totalRooms,
+        totalResidents,
+        revenue: totalRevenue[0]?.sum || 0,
+      },
+    });
+  } catch {
+    res.status(500).json({ ok: false, error: "Reports error" });
+  }
 });
 
 /* ================= HEALTH ================= */
 
 app.get("/wake", (req, res) => res.send("awake"));
 app.get("/", (req, res) => res.send("Hostel API Running"));
+
+/* ================= START ================= */
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log("Server running on port", PORT));
