@@ -1,10 +1,5 @@
-
-
 function requireAdmin(req, res, next) {
-
   const user = req.user || {};
-
-
   const role = user.role;
   const isAdmin =
     role === "Admin" ||
