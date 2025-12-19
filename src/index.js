@@ -7,6 +7,7 @@ const roomRoutes = require("./routes/rooms");
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const residentRoutes = require("./routes/residents");
+const maintenanceRoutes = require("./routes/maintenance");
 const billingRoutes = require("./routes/billing");
 const paymentRoutes = require("./routes/payments");
 
@@ -28,6 +29,7 @@ app.use("/api/rooms", roomRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/residents", residentRoutes);
+app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/payments", paymentRoutes);
 
