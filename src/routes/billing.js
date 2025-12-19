@@ -1,30 +1,66 @@
 const express = require("express");
+const Billing = require("../models/Billing");
+const validateBilling = require("../middleware/validateBilling");
+
 const router = express.Router();
 
 /**
  * GET /api/billing
- * Used by Dashboard
  */
 router.get("/", async (req, res) => {
   try {
-    // Mock billing data (enough for dashboard demo)
-    const payments = [
-      {
-        _id: "1",
-        amount: 5000,
-        status: "Paid",
-      },
-      {
-        _id: "2",
-        amount: 3000,
-        status: "Pending",
-      },
-    ];
-
+    const payments = await Billing.find().sort({ createdAt: -1 });
     return res.json({ ok: true, payments });
   } catch (err) {
-    console.error("GET /api/billing err", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+    console.error("GET /api/billing error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load billing records",
+    });
+  }
+});
+
+/**
+ * POST /api/billing
+ */
+router.post("/", validateBilling, async (req, res) => {
+  try {
+    const payment = await Billing.create(req.body);
+    return res.status(201).json({ ok: true, payment });
+  } catch (err) {
+    console.error("POST /api/billing error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to create payment",
+    });
+  }
+});
+
+/**
+ * PUT /api/billing/:id
+ */
+router.put("/:id", validateBilling, async (req, res) => {
+  try {
+    const updated = await Billing.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        ok: false,
+        error: "Payment not found",
+      });
+    }
+
+    return res.json({ ok: true, payment: updated });
+  } catch (err) {
+    console.error("PUT /api/billing error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to update payment",
+    });
   }
 });
 
@@ -33,19 +69,54 @@ router.get("/", async (req, res) => {
  */
 router.patch("/:id/pay", async (req, res) => {
   try {
-    const id = req.params.id;
-
-    return res.json({
-      ok: true,
-      payment: {
-        _id: id,
+    const updated = await Billing.findByIdAndUpdate(
+      req.params.id,
+      {
         status: "Paid",
         paidOn: new Date().toISOString().slice(0, 10),
+        method: req.body.method || "Manual",
       },
-    });
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        ok: false,
+        error: "Payment not found",
+      });
+    }
+
+    return res.json({ ok: true, payment: updated });
   } catch (err) {
-    console.error("PATCH /api/billing/:id/pay err", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+    console.error("PATCH /api/billing/:id/pay error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to mark payment as paid",
+    });
+  }
+});
+
+/**
+ * DELETE /api/billing/:id
+ */
+router.delete("/:id", async (req, res) => {
+  try {
+    const deleted = await Billing.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        ok: false,
+        error: "Payment not found",
+      });
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /api/billing error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to delete payment",
+    });
   }
 });
 
