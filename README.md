@@ -1,13 +1,13 @@
-🏨 Hostel Management System – Frontend
+🛠️ Hostel Management System – Backend (API Server)
 
-This repository contains the frontend application of the Hostel Management System, built using React (Vite) and Tailwind CSS.
+This repository contains the backend API for the Hostel Management System, built using Node.js, Express.js, and MongoDB.
 
-The application provides a modern, responsive, and role-based UI for managing hostel operations such as rooms, residents, maintenance, billing, payments, reports, and users.
+The backend handles authentication, authorization, room allocation, resident management, maintenance requests, billing, payments, reporting logic, and role-based access control for Admin and Staff users.
 
-🚀 Live Application (Frontend)
+🚀 Live Backend (Render)
 
-🔗 Netlify URL
-https://hostelmanagementtt.netlify.app
+🔗 API Base URL
+https://backend-hostel-management.onrender.com
 
 🔐 Demo Credentials (For Evaluation)
 👑 Admin Account
@@ -18,38 +18,50 @@ Password: admin123
 Email: staff@hostel.com
 Password: staff123
 
-🔎 Role Behavior
+🔎 Role Rules
 
 Admin
 
-Full access to all modules
+Full access to all APIs
 
 Can create, edit, activate, and deactivate Staff users
 
 Staff
 
-Can manage rooms, residents, maintenance, billing, and reports
+Can access Rooms, Residents, Maintenance, Billing, and Reports
 
-Cannot access User Management
+Cannot manage users
 
-ℹ️ Staff users are created only by Admin from the User Management page.
+ℹ️ Staff users are created only by Admin.
 
-✨ Features (Frontend)
+✨ Features (Backend)
 🔐 Authentication & Authorization
 
-JWT-based login system
+JWT-based authentication
 
-Token stored securely in localStorage
+Secure password hashing using bcrypt
 
-Protected routes (unauthorized users redirected to Login)
+Middleware-based route protection
 
-Role-based UI (Admin vs Staff)
+Role-based access control (Admin / Staff)
+
+Auto-creation of default Admin user on first server boot
+
+🧑‍💼 User Management
+
+Create / Update / Delete users
+
+Activate / Deactivate users
+
+Role enforcement (Admin / Staff)
+
+Admin users are protected from deletion
 
 🏠 Room Management
 
 Add / Edit / Delete rooms
 
-Room status tracking:
+Track room status:
 
 Available
 
@@ -57,23 +69,23 @@ Occupied
 
 Maintenance
 
-Automatic occupancy updates based on resident allocation
+Automatic room occupancy sync when residents move in or out
 
 👤 Resident Management
 
-Add / Edit / Delete residents
+Check-in / Check-out flow
 
 Auto room assignment
 
-Check-in date handling
+Update resident details
 
-Room occupancy sync when residents change rooms
+Sync resident active/inactive status with room occupancy
 
-🔧 Maintenance Requests
+🔧 Maintenance Management
 
-Create / Update / Delete maintenance requests
+Create maintenance requests
 
-Track status:
+Update issue status:
 
 Open
 
@@ -81,186 +93,172 @@ In Progress
 
 Closed
 
-Priority levels:
+Track priority and category
 
-High
-
-Medium
-
-Low
-
-💳 Billing & Payments
+💳 Billing & Payment Handling
 
 Create and manage bills
 
-Edit & delete bills
+Update bill status (Pending / Paid)
 
-“Pay Now” option
+Store invoice metadata
 
-Payment status update (Pending → Paid)
+Mark payments with date and method
 
-Invoice number, due date, and notes
+Revenue analytics ready for reports
 
-Disabled actions for paid invoices
+📊 Reporting Support
 
-📊 Dashboard & Reports
+Billing summaries
 
-Total revenue summary
+Room occupancy data
 
-Paid vs pending revenue
+Maintenance statistics
 
-Monthly revenue breakdown
+Structured data for frontend dashboards
 
-Room occupancy overview
+🧰 Tech Stack
 
-Maintenance status analytics
+Node.js
 
-Visual charts and insights
+Express.js
 
-👥 User Management (Admin Only)
+MongoDB Atlas
 
-Add / Edit / Delete staff users
-
-Activate / Deactivate users
-
-Admin accounts are protected (cannot be deleted)
-
-🎨 UI / UX
-
-Built with Tailwind CSS
-
-Fully responsive (desktop & mobile)
-
-Clean card-based dashboard layout
-
-Reusable UI components:
-
-Cards
-
-Modals
-
-Tables
-
-Forms
-
-Status badges
-
-🛠️ Tech Stack
-Frontend
-
-React.js (Vite)
-
-Tailwind CSS
-
-JavaScript (ES6)
-
-Fetch API
+Mongoose
 
 JWT Authentication
 
-LocalStorage
+Bcrypt Password Hashing
 
-Deployment
+CORS
 
-Netlify
+Dotenv
 
-⚙️ Installation & Setup (Frontend)
+📂 Folder Structure
+server/
+├── server.js              # Server entry point
+├── package.json
+├── package-lock.json
+├── .env                   # Environment variables (not committed)
+├── .gitignore
+└── src/
+    ├── index.js           # Express setup & route wiring
+    ├── seedAdmin.js       # Creates default admin user
+    │
+    ├── middleware/
+    │   ├── auth.js
+    │   ├── verifyToken.js
+    │   ├── requireAdmin.js
+    │   └── validateBilling.js
+    │
+    ├── models/
+    │   ├── Billing.js
+    │   ├── Invoice.js
+    │   ├── Maintenance.js
+    │   ├── Payment.js
+    │   ├── Resident.js
+    │   ├── Room.js
+    │   └── User.js
+    │
+    └── routes/
+        ├── auth.js
+        ├── users.js
+        ├── rooms.js
+        ├── residents.js
+        ├── maintenance.js
+        ├── billing.js
+        └── payments.js
+
+⚙️ Installation & Setup (Backend)
 1️⃣ Clone the Repository
-git clone https://github.com/annie199810/frontend-hostel-management.git
-cd frontend-hostel-management
+git clone https://github.com/annie199810/backend-hostel-management.git
+cd backend-hostel-management
 
 2️⃣ Install Dependencies
 npm install
 
 3️⃣ Environment Variables
 
-Create a .env file in the root directory:
+Create a .env file in the root directory
+(Do NOT commit this file to GitHub)
 
-VITE_API_BASE_URL=http://localhost:5000
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
+CLIENT_ORIGIN=http://localhost:5173
+PORT=5000
+
+4️⃣ Start the Server
+npm start
 
 
-For deployed backend (Netlify):
+or using nodemon:
 
-VITE_API_BASE_URL=https://backend-hostel-management.onrender.com
-
-4️⃣ Run Development Server
 npm run dev
 
 
-Frontend will be available at:
-👉 http://localhost:5173
+Backend will run on:
+👉 http://localhost:5000
 
-📂 Project Structure
-src/
-│
-├─ api/
-│   ├─ auth.js
-│   └─ users.js
-│
-├─ assets/
-│   └─ images / icons
-│
-├─ auth/
-│   ├─ AuthProvider.jsx
-│   └─ ProtectedRoute.jsx
-│
-├─ components/
-│   ├─ AddPaymentModal.jsx
-│   ├─ Card.jsx
-│   ├─ LoginPage.jsx
-│   ├─ RegisterPage.jsx
-│   ├─ Sidebar.jsx
-│   ├─ StatusModal.jsx
-│   └─ Topbar.jsx
-│
-├─ pages/
-│   ├─ AboutPage.jsx
-│   ├─ BillingPage.jsx
-│   ├─ DashboardPage.jsx
-│   ├─ MaintenancePage.jsx
-│   ├─ ReportsPage.jsx
-│   ├─ ResidentsPage.jsx
-│   ├─ RoomsPage.jsx
-│   └─ UserManagementPage.jsx
-│
-├─ utils/
-│   └─ auth.js
-│
-├─ App.jsx
-├─ App.css
-└─ main.jsx
+🔗 API Endpoints
+Authentication
+POST /api/auth/login
+POST /api/auth/register
+GET  /api/me
 
-🔐 Authentication Flow
+Users (Admin Only)
+GET    /api/users
+POST   /api/users
+PUT    /api/users/:id
+DELETE /api/users/:id
 
-User logs in using email & password
+Rooms
+GET    /api/rooms
+POST   /api/rooms
+PUT    /api/rooms/:id
+DELETE /api/rooms/:id
 
-Backend returns a JWT token
+Residents
+GET    /api/residents
+POST   /api/residents
+PUT    /api/residents/:id
+DELETE /api/residents/:id
 
-Token is stored in localStorage
+Maintenance
+GET    /api/maintenance
+POST   /api/maintenance
+PUT    /api/maintenance/:id
+DELETE /api/maintenance/:id
+PATCH  /api/maintenance/:id/status
 
-All protected API requests include:
+Billing
+GET    /api/billing
+POST   /api/billing
+PUT    /api/billing/:id
+DELETE /api/billing/:id
+PATCH  /api/billing/:id/pay
 
-Authorization: Bearer <token>
+🚀 Deployment Notes (Render)
 
+Add environment variables in Render Dashboard
 
-If token is missing or invalid → redirect to Login page
+Set correct CLIENT_ORIGIN for production
 
-🧪 Scripts
-npm run dev       # Start frontend locally
-npm run build     # Build production files
-npm run preview   # Preview production build
+Enable auto-deploy from GitHub
+
+Use Render backend URL in frontend .env
 
 🧹 Notes
 
-No external UI libraries used (only Tailwind CSS)
+Secure password handling with bcrypt
 
-Fully responsive UI
+JWT-based route protection
 
-Clean separation of Admin and Staff roles
+Clear separation of Admin and Staff permissions
 
-No company or brand names included (GUVI requirement compliant)
+No company or brand names included (GUVI compliant)
 
 🔗 Related Repository
 
-🔙 Backend Repository
-https://github.com/annie199810/backend-hostel-management
+🎨 Frontend Repository
+https://github.com/annie199810/frontend-hostel-management
