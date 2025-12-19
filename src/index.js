@@ -4,7 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 
-/* ===== ROUTES ===== */
+
 const roomRoutes = require("./routes/rooms");
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
@@ -15,22 +15,22 @@ const paymentRoutes = require("./routes/payments");
 
 const app = express();
 
-/* ================= MIDDLEWARE ================= */
+
 app.use(
   cors({
-    origin: "*", // Netlify / local / anywhere
+    origin: "*", 
     credentials: true,
   })
 );
 
 app.use(express.json());
 
-/* ================= HEALTH CHECK ================= */
+
 app.get("/", (req, res) => {
   res.send("✅ Hostel Management API running");
 });
 
-/* ================= API ROUTES ================= */
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 
@@ -40,7 +40,7 @@ app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/payments", paymentRoutes);
 
-/* ================= 404 HANDLER ================= */
+
 app.use((req, res) => {
   res.status(404).json({
     ok: false,
@@ -48,7 +48,7 @@ app.use((req, res) => {
   });
 });
 
-/* ================= SERVER START ================= */
+
 const PORT = process.env.PORT || 5000;
 
 mongoose

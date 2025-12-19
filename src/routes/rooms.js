@@ -3,7 +3,7 @@ const router = express.Router();
 const Room = require("../models/Room");
 const verifyToken = require("../middleware/verifyToken");
 
-/* ---------- GET ALL ROOMS ---------- */
+
 router.get("/", verifyToken, async (req, res) => {
   try {
     const rooms = await Room.find().sort({ roomNumber: 1 });
@@ -14,7 +14,7 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-/* ---------- ADD ROOM ---------- */
+
 router.post("/", verifyToken, async (req, res) => {
   try {
     const room = new Room(req.body);
@@ -26,7 +26,7 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-/* ---------- ✅ UPDATE ROOM (THIS WAS MISSING) ---------- */
+
 router.put("/:id", verifyToken, async (req, res) => {
   try {
     const updatedRoom = await Room.findByIdAndUpdate(
@@ -46,7 +46,7 @@ router.put("/:id", verifyToken, async (req, res) => {
   }
 });
 
-/* ---------- DELETE ROOM ---------- */
+
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
     await Room.findByIdAndDelete(req.params.id);

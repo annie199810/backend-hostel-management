@@ -3,7 +3,7 @@ const Maintenance = require("../models/Maintenance");
 
 const router = express.Router();
 
-/* ================= GET ALL ================= */
+
 router.get("/", async (req, res) => {
   try {
     const requests = await Maintenance.find().sort({ createdAt: -1 });
@@ -20,7 +20,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* ================= CREATE ================= */
+
 router.post("/", async (req, res) => {
   try {
     const {
@@ -64,7 +64,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-/* ================= UPDATE ================= */
+
 router.put("/:id", async (req, res) => {
   try {
     const updated = await Maintenance.findByIdAndUpdate(
@@ -93,7 +93,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/* ================= STATUS UPDATE ================= */
+
 router.post("/:id/status", async (req, res) => {
   try {
     const { status } = req.body;
@@ -117,7 +117,7 @@ router.post("/:id/status", async (req, res) => {
   }
 });
 
-/* ================= DELETE ================= */
+
 router.delete("/:id", async (req, res) => {
   try {
     await Maintenance.findByIdAndDelete(req.params.id);
@@ -134,5 +134,5 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-/* ================= VERY IMPORTANT ================= */
+
 module.exports = router;

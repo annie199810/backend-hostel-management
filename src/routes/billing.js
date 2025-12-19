@@ -4,9 +4,7 @@ const validateBilling = require("../middleware/validateBilling");
 
 const router = express.Router();
 
-/**
- * GET /api/billing
- */
+
 router.get("/", async (req, res) => {
   try {
     const payments = await Billing.find().sort({ createdAt: -1 });
@@ -20,9 +18,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * POST /api/billing
- */
+
 router.post("/", validateBilling, async (req, res) => {
   try {
     const payment = await Billing.create(req.body);
@@ -36,9 +32,7 @@ router.post("/", validateBilling, async (req, res) => {
   }
 });
 
-/**
- * PUT /api/billing/:id
- */
+
 router.put("/:id", validateBilling, async (req, res) => {
   try {
     const updated = await Billing.findByIdAndUpdate(
@@ -64,9 +58,7 @@ router.put("/:id", validateBilling, async (req, res) => {
   }
 });
 
-/**
- * PATCH /api/billing/:id/pay
- */
+
 router.patch("/:id/pay", async (req, res) => {
   try {
     const updated = await Billing.findByIdAndUpdate(
@@ -96,9 +88,7 @@ router.patch("/:id/pay", async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/billing/:id
- */
+
 router.delete("/:id", async (req, res) => {
   try {
     const deleted = await Billing.findByIdAndDelete(req.params.id);

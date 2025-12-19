@@ -66,7 +66,7 @@ router.post(
         name,
         email: email.toLowerCase(),
         password: hash,
-        role: role || "Staff", // Admin can choose role
+        role: role || "Staff", 
         status: status || "Active",
       });
 

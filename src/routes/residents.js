@@ -4,11 +4,7 @@ const Room = require("../models/Room");
 
 const router = express.Router();
 
-/* ===============================
-   ROOM HELPERS
-================================ */
 
-// Remove resident from a room
 async function removeFromRoom(roomNumber, residentId) {
   if (!roomNumber || !residentId) return;
 
@@ -26,13 +22,13 @@ async function removeFromRoom(roomNumber, residentId) {
   await room.save();
 }
 
-// Add resident to a room
+
 async function addToRoom(roomNumber, resident) {
   if (!roomNumber || !resident) return;
 
   const room = await Room.findOne({ number: String(roomNumber) });
 
-  // ✅ IMPORTANT FIX
+  
   if (!room) {
     throw new Error("Room does not exist");
   }
@@ -53,9 +49,7 @@ async function addToRoom(roomNumber, resident) {
   await room.save();
 }
 
-/* ===============================
-   GET ALL RESIDENTS
-================================ */
+
 router.get("/", async (req, res) => {
   try {
     const residents = await Resident.find().sort({ createdAt: -1 });
@@ -69,9 +63,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* ===============================
-   CREATE RESIDENT (FIXED)
-================================ */
+
 router.post("/", async (req, res) => {
   try {
     let { name, roomNumber, phone, status } = req.body || {};
@@ -85,7 +77,7 @@ router.post("/", async (req, res) => {
 
     roomNumber = String(roomNumber).trim();
 
-    // ✅ CHECK ROOM EXISTS
+    
     const roomExists = await Room.findOne({ number: roomNumber });
     if (!roomExists) {
       return res.status(400).json({
@@ -118,9 +110,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-/* ===============================
-   UPDATE RESIDENT
-================================ */
+
 router.put("/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -145,7 +135,7 @@ router.put("/:id", async (req, res) => {
       runValidators: true,
     });
 
-    // Sync room changes
+    
     try {
       await removeFromRoom(existing.roomNumber, id);
 
@@ -170,9 +160,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/* ===============================
-   DELETE RESIDENT
-================================ */
+
 router.delete("/:id", async (req, res) => {
   try {
     const id = req.params.id;
