@@ -1,11 +1,10 @@
-
-
 const express = require("express");
 const Resident = require("../models/Resident");
 const Room = require("../models/Room");
 
 const router = express.Router();
 
+/* ------------------ Helpers ------------------ */
 
 async function removeFromRoom(roomNumber, residentId) {
   if (!roomNumber) return;
@@ -24,18 +23,17 @@ async function removeFromRoom(roomNumber, residentId) {
   await room.save();
 }
 
-
 async function addToRoom(roomNumber, resident) {
   if (!roomNumber || !resident) return;
 
   const room = await Room.findOne({ number: roomNumber });
   if (!room) return;
 
-  const already = (room.occupants || []).some(function (occ) {
+  const alreadyExists = (room.occupants || []).some(function (occ) {
     return String(occ.residentId) === String(resident._id);
   });
 
-  if (!already) {
+  if (!alreadyExists) {
     room.occupants.push({
       residentId: String(resident._id),
       name: resident.name,
@@ -47,6 +45,7 @@ async function addToRoom(roomNumber, resident) {
   await room.save();
 }
 
+/* ------------------ GET ALL ------------------ */
 
 router.get("/", async function (req, res) {
   try {
@@ -60,6 +59,7 @@ router.get("/", async function (req, res) {
   }
 });
 
+/* ------------------ CREATE ------------------ */
 
 router.post("/", async function (req, res) {
   try {
@@ -72,22 +72,18 @@ router.post("/", async function (req, res) {
       });
     }
 
-    const nowDate = new Date().toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
 
     const resident = await Resident.create({
       name,
       roomNumber,
       phone,
       status: status || "active",
-      checkIn: nowDate,
+      checkIn: today,
     });
 
     if ((resident.status || "active") === "active") {
-      try {
-        await addToRoom(roomNumber, resident);
-      } catch (e) {
-        console.warn("POST /api/residents: addToRoom warning:", e);
-      }
+      await addToRoom(roomNumber, resident);
     }
 
     return res.status(201).json({ ok: true, resident });
@@ -99,44 +95,46 @@ router.post("/", async function (req, res) {
   }
 });
 
+/* ------------------ UPDATE (FIXED) ------------------ */
 
 router.put("/:id", async function (req, res) {
   try {
-    var id = req.params.id;
-    var body = req.body || {};
+    const id = req.params.id;
+    const body = req.body || {};
 
-    var existing = await Resident.findById(id);
+    const existing = await Resident.findById(id);
     if (!existing) {
       return res.status(404).json({ ok: false, error: "Resident not found" });
     }
 
-    var update = {};
-
+    const update = {};
     if (body.name != null) update.name = body.name;
-    if (body.roomNumber != null) update.roomNumber = body.roomNumber;
     if (body.phone != null) update.phone = body.phone;
+    if (body.roomNumber != null) update.roomNumber = body.roomNumber;
     if (body.status != null) update.status = body.status;
 
-    var updated = await Resident.findByIdAndUpdate(id, update, {
+    const updated = await Resident.findByIdAndUpdate(id, update, {
       new: true,
       runValidators: true,
     });
 
-    
+    /* ✅ SAFE ROOM SYNC */
     try {
-      await removeFromRoom(existing.roomNumber, id);
+      if (existing.roomNumber !== updated.roomNumber) {
+        await removeFromRoom(existing.roomNumber, id);
 
-      if ((updated.status || "active") === "active" && updated.roomNumber) {
-        await addToRoom(updated.roomNumber, updated);
+        if ((updated.status || "active") === "active" && updated.roomNumber) {
+          await addToRoom(updated.roomNumber, updated);
+        }
       }
     } catch (e) {
-      console.warn("PUT /api/residents/:id room sync warning:", e);
+      console.warn("Room sync warning:", e);
     }
 
     return res.json({
       ok: true,
       resident: updated,
-      message: "Resident updated successfully.",
+      message: "Resident updated successfully",
     });
   } catch (err) {
     console.error("PUT /api/residents/:id error:", err);
@@ -146,12 +144,13 @@ router.put("/:id", async function (req, res) {
   }
 });
 
+/* ------------------ DELETE ------------------ */
 
 router.delete("/:id", async function (req, res) {
   try {
-    var id = req.params.id;
-    var existing = await Resident.findById(id);
+    const id = req.params.id;
 
+    const existing = await Resident.findById(id);
     if (!existing) {
       return res.status(404).json({ ok: false, error: "Resident not found" });
     }
@@ -161,12 +160,12 @@ router.delete("/:id", async function (req, res) {
     try {
       await removeFromRoom(existing.roomNumber, id);
     } catch (e) {
-      console.warn("DELETE /api/residents/:id room sync warning:", e);
+      console.warn("Room cleanup warning:", e);
     }
 
     return res.json({
       ok: true,
-      message: "Resident deleted successfully.",
+      message: "Resident deleted successfully",
     });
   } catch (err) {
     console.error("DELETE /api/residents/:id error:", err);
