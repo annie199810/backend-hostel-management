@@ -2,12 +2,12 @@ const mongoose = require("mongoose");
 
 const ResidentSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    roomNumber: { type: String, trim: true },
-    phone: { type: String, trim: true },
+    name: { type: String, required: true },
+    roomNumber: { type: String, required: true },
+    phone: { type: String, required: true },
     status: {
       type: String,
-      enum: ["active", "checked-out"],
+      enum: ["active", "inactive"],
       default: "active",
     },
     checkIn: { type: String },
