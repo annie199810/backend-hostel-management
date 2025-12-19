@@ -1,189 +1,266 @@
-🛠️ Hostel Management System — Backend (API Server)
+🏨 Hostel Management System – Frontend
 
-This repository contains the backend API for the Hostel Management System, built using Node.js, Express.js, and MongoDB.
-It handles authentication, room allocation, resident management, maintenance requests, billing, and reporting logic.
+This repository contains the frontend application of the Hostel Management System, built using React (Vite) and Tailwind CSS.
 
-🚀 Live Backend URL (Render)
+The application provides a modern, responsive, and role-based UI for managing hostel operations such as rooms, residents, maintenance, billing, payments, reports, and users.
 
-🔗 https://backend-hostel-management.onrender.com
+🚀 Live Application (Frontend)
 
-📌 Features (Backend)
+🔗 Netlify URL
+https://hostelmanagementtt.netlify.app
+
+🔐 Demo Credentials (For Evaluation)
+👑 Admin Account
+Email: admin@hostel.com
+Password: admin123
+
+👷 Staff Account
+Email: staff@hostel.com
+Password: staff123
+
+🔎 Role Behavior
+
+Admin
+
+Full access to all modules
+
+Can create, edit, activate, and deactivate Staff users
+
+Staff
+
+Can manage rooms, residents, maintenance, billing, and reports
+
+Cannot access User Management
+
+ℹ️ Staff users are created only by Admin from the User Management page.
+
+✨ Features (Frontend)
 🔐 Authentication & Authorization
 
-Login & Register API
+JWT-based login system
 
-JWT-based secure authentication
+Token stored securely in localStorage
 
-Middleware to protect private routes
+Protected routes (unauthorized users redirected to Login)
 
-Auto-create default Admin on first boot
-
-🧑‍💼 User Management
-
-Create / Update / Delete users
-
-Activate / Deactivate user status
-
-Role-based access (Admin / Staff)
+Role-based UI (Admin vs Staff)
 
 🏠 Room Management
 
 Add / Edit / Delete rooms
 
-Track availability
+Room status tracking:
 
-Sync room occupancy when residents move / update rooms
+Available
+
+Occupied
+
+Maintenance
+
+Automatic occupancy updates based on resident allocation
 
 👤 Resident Management
 
-Check-in / Check-out flow
+Add / Edit / Delete residents
 
-Auto-assign / remove from room
+Auto room assignment
 
-Update resident details
+Check-in date handling
 
-Sync active/inactive status
+Room occupancy sync when residents change rooms
 
-🔧 Maintenance Management
+🔧 Maintenance Requests
 
-Create maintenance requests
+Create / Update / Delete maintenance requests
 
-Update issue status (Open → In Progress → Closed)
+Track status:
 
-Track priority & category
+Open
 
-💳 Billing & Payment Handling
+In Progress
 
-Create new bills
+Closed
 
-Update bill status (Pending / Paid)
+Priority levels:
 
-Store invoice metadata
+High
 
-Revenue analytics ready
+Medium
 
-🧰 Tech Stack
+Low
 
-Node.js
+💳 Billing & Payments
 
-Express.js
+Create and manage bills
 
-MongoDB Atlas
+Edit & delete bills
 
-Mongoose
+“Pay Now” option
+
+Payment status update (Pending → Paid)
+
+Invoice number, due date, and notes
+
+Disabled actions for paid invoices
+
+📊 Dashboard & Reports
+
+Total revenue summary
+
+Paid vs pending revenue
+
+Monthly revenue breakdown
+
+Room occupancy overview
+
+Maintenance status analytics
+
+Visual charts and insights
+
+👥 User Management (Admin Only)
+
+Add / Edit / Delete staff users
+
+Activate / Deactivate users
+
+Admin accounts are protected (cannot be deleted)
+
+🎨 UI / UX
+
+Built with Tailwind CSS
+
+Fully responsive (desktop & mobile)
+
+Clean card-based dashboard layout
+
+Reusable UI components:
+
+Cards
+
+Modals
+
+Tables
+
+Forms
+
+Status badges
+
+🛠️ Tech Stack
+Frontend
+
+React.js (Vite)
+
+Tailwind CSS
+
+JavaScript (ES6)
+
+Fetch API
 
 JWT Authentication
 
-Bcrypt Password Hashing
+LocalStorage
 
-CORS
+Deployment
 
-Dotenv
+Netlify
 
-📂 Folder Structure
+⚙️ Installation & Setup (Frontend)
+1️⃣ Clone the Repository
+git clone https://github.com/annie199810/frontend-hostel-management.git
+cd frontend-hostel-management
 
-/server
-├── server.js                # Entry point (starts Express app)
-├── package.json
-├── package-lock.json
-├── .env                     # (not committed) env variables
-├── .gitignore
-└── src
-    ├── index.js             # Main Express setup & routes wiring
-    ├── seedAdmin.js         # Script to create default admin
-    │
-    ├── middleware
-    │   ├── auth.js
-    │   ├── requireAdmin.js
-    │   ├── validateBilling.js
-    │   └── verifyToken.js
-    │
-    ├── models
-    │   ├── Billing.js
-    │   ├── Invoice.js
-    │   ├── Maintenance.js
-    │   ├── Payment.js
-    │   ├── Resident.js
-    │   ├── Room.js
-    │   └── User.js
-    │
-    └── routes
-        ├── auth.js
-        ├── billing.js
-        ├── payments.js
-        ├── residents.js
-        └── users.js
-
-
-⚙️ Installation Guide (Local Setup)
-1️⃣ Clone Backend Repo
-git clone https://github.com/annie199810/backend-hostel-management.git
-cd backend-hostel-management
-
-2️⃣ Install dependencies
+2️⃣ Install Dependencies
 npm install
 
-3️⃣ Create .env file
+3️⃣ Environment Variables
 
-👉 NOT push .env to GitHub
+Create a .env file in the root directory:
 
-MONGO_URI=your_mongo_connection_string
-JWT_SECRET=your_secret
-CLIENT_ORIGIN=http://localhost:5173
-PORT=5000
+VITE_API_BASE_URL=http://localhost:5000
 
-4️⃣ Start the server
-npm start
 
-or using nodemon:
+For deployed backend (Netlify):
 
+VITE_API_BASE_URL=https://backend-hostel-management.onrender.com
+
+4️⃣ Run Development Server
 npm run dev
 
-🔗 API Endpoints
-Auth
-POST /api/auth/login
-POST /api/auth/register
-GET  /api/me
 
-Users
-GET    /api/users
-POST   /api/users
-PUT    /api/users/:id
-DELETE /api/users/:id
+Frontend will be available at:
+👉 http://localhost:5173
 
-Rooms
-GET    /api/rooms
-POST   /api/rooms
-PUT    /api/rooms/:id
-DELETE /api/rooms/:id
+📂 Project Structure
+src/
+│
+├─ api/
+│   ├─ auth.js
+│   └─ users.js
+│
+├─ assets/
+│   └─ images / icons
+│
+├─ auth/
+│   ├─ AuthProvider.jsx
+│   └─ ProtectedRoute.jsx
+│
+├─ components/
+│   ├─ AddPaymentModal.jsx
+│   ├─ Card.jsx
+│   ├─ LoginPage.jsx
+│   ├─ RegisterPage.jsx
+│   ├─ Sidebar.jsx
+│   ├─ StatusModal.jsx
+│   └─ Topbar.jsx
+│
+├─ pages/
+│   ├─ AboutPage.jsx
+│   ├─ BillingPage.jsx
+│   ├─ DashboardPage.jsx
+│   ├─ MaintenancePage.jsx
+│   ├─ ReportsPage.jsx
+│   ├─ ResidentsPage.jsx
+│   ├─ RoomsPage.jsx
+│   └─ UserManagementPage.jsx
+│
+├─ utils/
+│   └─ auth.js
+│
+├─ App.jsx
+├─ App.css
+└─ main.jsx
 
-Residents
-GET    /api/residents
-POST   /api/residents
-PUT    /api/residents/:id
-DELETE /api/residents/:id
+🔐 Authentication Flow
 
-Maintenance
-GET    /api/maintenance
-POST   /api/maintenance
-PUT    /api/maintenance/:id
-DELETE /api/maintenance/:id
-PATCH  /api/maintenance/:id/status
+User logs in using email & password
 
-Billing
-GET    /api/billing
-POST   /api/billing
-PUT    /api/billing/:id
-DELETE /api/billing/:id
-PATCH  /api/billing/:id/pay
+Backend returns a JWT token
 
-🚀 Deployment Notes (Render)
+Token is stored in localStorage
 
-Add environment variables in Render Dashboard
+All protected API requests include:
 
-Change CORS origin for production
+Authorization: Bearer <token>
 
-Enable auto-deploy from GitHub
 
-Backend URL must be used in frontend .env
+If token is missing or invalid → redirect to Login page
 
+🧪 Scripts
+npm run dev       # Start frontend locally
+npm run build     # Build production files
+npm run preview   # Preview production build
+
+🧹 Notes
+
+No external UI libraries used (only Tailwind CSS)
+
+Fully responsive UI
+
+Clean separation of Admin and Staff roles
+
+No company or brand names included (GUVI requirement compliant)
+
+🔗 Related Repository
+
+🔙 Backend Repository
+https://github.com/annie199810/backend-hostel-management
