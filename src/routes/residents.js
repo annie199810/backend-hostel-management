@@ -4,10 +4,13 @@ const Room = require("../models/Room");
 
 const router = express.Router();
 
-/* ---------------- ROOM HELPERS ---------------- */
+/* ===============================
+   ROOM HELPERS
+================================ */
 
+// Remove resident from a room
 async function removeFromRoom(roomNumber, residentId) {
-  if (!roomNumber) return;
+  if (!roomNumber || !residentId) return;
 
   const room = await Room.findOne({ number: String(roomNumber) });
   if (!room) return;
@@ -23,17 +26,22 @@ async function removeFromRoom(roomNumber, residentId) {
   await room.save();
 }
 
+// Add resident to a room
 async function addToRoom(roomNumber, resident) {
   if (!roomNumber || !resident) return;
 
   const room = await Room.findOne({ number: String(roomNumber) });
-  if (!room) return;
 
-  const exists = (room.occupants || []).some(
+  // ✅ IMPORTANT FIX
+  if (!room) {
+    throw new Error("Room does not exist");
+  }
+
+  const alreadyExists = (room.occupants || []).some(
     (o) => String(o.residentId) === String(resident._id)
   );
 
-  if (!exists) {
+  if (!alreadyExists) {
     room.occupants.push({
       residentId: String(resident._id),
       name: resident.name,
@@ -45,23 +53,28 @@ async function addToRoom(roomNumber, resident) {
   await room.save();
 }
 
-/* ---------------- ROUTES ---------------- */
-
-// GET all residents
+/* ===============================
+   GET ALL RESIDENTS
+================================ */
 router.get("/", async (req, res) => {
   try {
     const residents = await Resident.find().sort({ createdAt: -1 });
-    res.json({ ok: true, residents });
+    return res.json({ ok: true, residents });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ ok: false, error: "Failed to load residents" });
+    console.error("GET /api/residents error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load residents",
+    });
   }
 });
 
-// ADD resident
+/* ===============================
+   CREATE RESIDENT (FIXED)
+================================ */
 router.post("/", async (req, res) => {
   try {
-    let { name, roomNumber, phone, status } = req.body;
+    let { name, roomNumber, phone, status } = req.body || {};
 
     if (!name || !roomNumber || !phone) {
       return res.status(400).json({
@@ -71,6 +84,15 @@ router.post("/", async (req, res) => {
     }
 
     roomNumber = String(roomNumber).trim();
+
+    // ✅ CHECK ROOM EXISTS
+    const roomExists = await Room.findOne({ number: roomNumber });
+    if (!roomExists) {
+      return res.status(400).json({
+        ok: false,
+        error: "Selected room does not exist",
+      });
+    }
 
     const today = new Date().toISOString().slice(0, 10);
 
@@ -82,76 +104,105 @@ router.post("/", async (req, res) => {
       checkIn: today,
     });
 
-    if (resident.status === "active") {
+    if ((resident.status || "active") === "active") {
       await addToRoom(roomNumber, resident);
     }
 
-    res.status(201).json({ ok: true, resident });
+    return res.status(201).json({ ok: true, resident });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ ok: false, error: "Failed to create resident" });
+    console.error("POST /api/residents error:", err.message);
+    return res.status(500).json({
+      ok: false,
+      error: err.message || "Failed to create resident",
+    });
   }
 });
 
-// UPDATE resident  ⭐ FIXED
+/* ===============================
+   UPDATE RESIDENT
+================================ */
 router.put("/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    let body = req.body || {};
+    const body = req.body || {};
 
     const existing = await Resident.findById(id);
     if (!existing) {
-      return res.status(404).json({ ok: false, error: "Resident not found" });
+      return res.status(404).json({
+        ok: false,
+        error: "Resident not found",
+      });
     }
 
-    if (body.roomNumber) {
-      body.roomNumber = String(body.roomNumber).trim();
+    const update = {};
+    if (body.name != null) update.name = body.name;
+    if (body.roomNumber != null) update.roomNumber = String(body.roomNumber);
+    if (body.phone != null) update.phone = body.phone;
+    if (body.status != null) update.status = body.status;
+
+    const updated = await Resident.findByIdAndUpdate(id, update, {
+      new: true,
+      runValidators: true,
+    });
+
+    // Sync room changes
+    try {
+      await removeFromRoom(existing.roomNumber, id);
+
+      if ((updated.status || "active") === "active" && updated.roomNumber) {
+        await addToRoom(updated.roomNumber, updated);
+      }
+    } catch (e) {
+      console.warn("PUT /api/residents room sync warning:", e.message);
     }
 
-    const updated = await Resident.findByIdAndUpdate(
-      id,
-      {
-        name: body.name,
-        phone: body.phone,
-        status: body.status,
-        roomNumber: body.roomNumber,
-      },
-      { new: true, runValidators: true }
-    );
-
-    // Room sync
-    await removeFromRoom(existing.roomNumber, id);
-
-    if (updated.status === "active") {
-      await addToRoom(updated.roomNumber, updated);
-    }
-
-    res.json({
+    return res.json({
       ok: true,
       resident: updated,
       message: "Resident updated successfully",
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ ok: false, error: "Failed to update resident" });
+    console.error("PUT /api/residents error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to update resident",
+    });
   }
 });
 
-// DELETE resident
+/* ===============================
+   DELETE RESIDENT
+================================ */
 router.delete("/:id", async (req, res) => {
   try {
-    const existing = await Resident.findById(req.params.id);
+    const id = req.params.id;
+
+    const existing = await Resident.findById(id);
     if (!existing) {
-      return res.status(404).json({ ok: false, error: "Resident not found" });
+      return res.status(404).json({
+        ok: false,
+        error: "Resident not found",
+      });
     }
 
-    await Resident.findByIdAndDelete(req.params.id);
-    await removeFromRoom(existing.roomNumber, req.params.id);
+    await Resident.findByIdAndDelete(id);
 
-    res.json({ ok: true, message: "Resident deleted successfully" });
+    try {
+      await removeFromRoom(existing.roomNumber, id);
+    } catch (e) {
+      console.warn("DELETE /api/residents room sync warning:", e.message);
+    }
+
+    return res.json({
+      ok: true,
+      message: "Resident deleted successfully",
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ ok: false, error: "Failed to delete resident" });
+    console.error("DELETE /api/residents error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to delete resident",
+    });
   }
 });
 
