@@ -1,15 +1,16 @@
-
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const verifyToken = require("../middleware/auth"); 
 
 const router = express.Router();
+
 
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    console.log("LOGIN ATTEMPT:", { email, password });
+    console.log("LOGIN ATTEMPT:", { email });
 
     if (!email || !password) {
       return res.status(400).json({
@@ -19,10 +20,6 @@ router.post("/login", async (req, res) => {
     }
 
     const user = await User.findOne({ email: email.toLowerCase() });
-    console.log(
-      "FOUND USER:",
-      user ? { id: user._id, email: user.email, role: user.role } : null
-    );
 
     if (!user) {
       return res.status(401).json({
@@ -32,8 +29,6 @@ router.post("/login", async (req, res) => {
     }
 
     const ok = await bcrypt.compare(password, user.password || "");
-    console.log("PASSWORD MATCH?", ok);
-
     if (!ok) {
       return res.status(401).json({
         ok: false,
@@ -69,6 +64,14 @@ router.post("/login", async (req, res) => {
       error: "Login failed. Please try again later.",
     });
   }
+});
+
+
+router.get("/me", verifyToken, (req, res) => {
+  return res.json({
+    ok: true,
+    user: req.user,
+  });
 });
 
 module.exports = router;
