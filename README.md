@@ -11,15 +11,18 @@ https://backend-hostel-management.onrender.com
 
 🔐 Demo Credentials (For Evaluation)
 👑 Admin Account
+
 Email: admin@hostel.com
+
 Password: admin123
 
 👷 Staff Account
+
 Email: staff@hostel.com
+
 Password: staff123
 
 🔎 Role Rules
-
 Admin
 
 Full access to all APIs
@@ -32,7 +35,7 @@ Can access Rooms, Residents, Maintenance, Billing, and Reports
 
 Cannot manage users
 
-ℹ️ Staff users are created only by Admin.
+ℹ️ Staff users are created and managed only by Admin.
 
 ✨ Features (Backend)
 🔐 Authentication & Authorization
@@ -45,7 +48,7 @@ Middleware-based route protection
 
 Role-based access control (Admin / Staff)
 
-Auto-creation of default Admin user on first server boot
+Automatic creation of a default Admin user on first server boot
 
 🧑‍💼 User Management
 
@@ -69,13 +72,13 @@ Occupied
 
 Maintenance
 
-Automatic room occupancy sync when residents move in or out
+Automatic room occupancy synchronization when residents move in or out
 
 👤 Resident Management
 
 Check-in / Check-out flow
 
-Auto room assignment
+Automatic room assignment
 
 Update resident details
 
@@ -95,7 +98,7 @@ Closed
 
 Track priority and category
 
-💳 Billing & Payment Handling
+💳 Billing & Payment Handling (Backend Logic)
 
 Create and manage bills
 
@@ -105,7 +108,11 @@ Store invoice metadata
 
 Mark payments with date and method
 
-Revenue analytics ready for reports
+Revenue data structured for reporting and dashboards
+
+Note:
+Payment gateway integration is intentionally simulated for demo purposes.
+Real payment gateways (Razorpay / Stripe) can be integrated as a future enhancement.
 
 📊 Reporting Support
 
@@ -115,7 +122,7 @@ Room occupancy data
 
 Maintenance statistics
 
-Structured data for frontend dashboards
+Structured API responses for frontend dashboards
 
 🧰 Tech Stack
 
@@ -129,7 +136,7 @@ Mongoose
 
 JWT Authentication
 
-Bcrypt Password Hashing
+Bcrypt (Password Hashing)
 
 CORS
 
@@ -204,7 +211,7 @@ Backend will run on:
 Authentication
 POST /api/auth/login
 POST /api/auth/register
-GET  /api/me
+GET  /api/auth/me
 
 Users (Admin Only)
 GET    /api/users
@@ -246,11 +253,16 @@ Set correct CLIENT_ORIGIN for production
 
 Enable auto-deploy from GitHub
 
-Use Render backend URL in frontend .env
+Use Render backend URL in frontend .env file
+
+📌 Project Scope
+
+This backend focuses on secure APIs, role-based authorization, and core hostel management logic.
+Advanced features such as real payment gateway integration and high-concurrency booking locks are planned as future enhancements.
 
 🧹 Notes
 
-Secure password handling with bcrypt
+Secure password handling using bcrypt
 
 JWT-based route protection
 
