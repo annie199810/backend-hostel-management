@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const Room = require("../models/Room");
-const verifyToken = require("../middleware/verifyToken");
+const verifyToken = require("../middleware/auth");
+
 
 
 router.get("/", verifyToken, async (req, res) => {
