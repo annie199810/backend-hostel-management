@@ -1,7 +1,6 @@
 const express = require("express");
 const Resident = require("../models/Resident");
 const Room = require("../models/Room");
-
 const router = express.Router();
 
 
@@ -28,9 +27,18 @@ async function addToRoom(roomNumber, resident) {
 
   const room = await Room.findOne({ number: String(roomNumber) });
 
-  
   if (!room) {
     throw new Error("Room does not exist");
+  }
+
+ 
+  const capacity =
+    room.type === "Single" ? 1 :
+    room.type === "Double" ? 2 :
+    1;
+
+  if ((room.occupants || []).length >= capacity) {
+    throw new Error("Room is already fully occupied");
   }
 
   const alreadyExists = (room.occupants || []).some(
@@ -77,7 +85,6 @@ router.post("/", async (req, res) => {
 
     roomNumber = String(roomNumber).trim();
 
-    
     const roomExists = await Room.findOne({ number: roomNumber });
     if (!roomExists) {
       return res.status(400).json({
@@ -103,7 +110,7 @@ router.post("/", async (req, res) => {
     return res.status(201).json({ ok: true, resident });
   } catch (err) {
     console.error("POST /api/residents error:", err.message);
-    return res.status(500).json({
+    return res.status(400).json({
       ok: false,
       error: err.message || "Failed to create resident",
     });
@@ -135,7 +142,6 @@ router.put("/:id", async (req, res) => {
       runValidators: true,
     });
 
-    
     try {
       await removeFromRoom(existing.roomNumber, id);
 
@@ -143,7 +149,10 @@ router.put("/:id", async (req, res) => {
         await addToRoom(updated.roomNumber, updated);
       }
     } catch (e) {
-      console.warn("PUT /api/residents room sync warning:", e.message);
+      return res.status(400).json({
+        ok: false,
+        error: e.message,
+      });
     }
 
     return res.json({
