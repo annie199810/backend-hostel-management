@@ -74,7 +74,8 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    let { name, roomNumber, phone, status } = req.body || {};
+    let { name, roomNumber, phone, status, expectedCheckout } = req.body || {};
+
 
     if (!name || !roomNumber || !phone) {
       return res.status(400).json({
@@ -96,12 +97,13 @@ router.post("/", async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
 
     const resident = await Resident.create({
-      name: String(name).trim(),
-      roomNumber,
-      phone: String(phone).trim(),
-      status: status || "active",
-      checkIn: today,
-    });
+  name: String(name).trim(),
+  roomNumber,
+  phone: String(phone).trim(),
+  status: status || "active",
+  checkIn: today,
+  expectedCheckout, 
+});
 
     if ((resident.status || "active") === "active") {
       await addToRoom(roomNumber, resident);
@@ -122,7 +124,7 @@ router.put("/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const body = req.body || {};
-
+ console.log("PUT BODY 👉", req.body); 
     const existing = await Resident.findById(id);
     if (!existing) {
       return res.status(404).json({
@@ -136,6 +138,8 @@ router.put("/:id", async (req, res) => {
     if (body.roomNumber != null) update.roomNumber = String(body.roomNumber);
     if (body.phone != null) update.phone = body.phone;
     if (body.status != null) update.status = body.status;
+if (body.expectedCheckout != null)
+  update.expectedCheckout = body.expectedCheckout;
 
     const updated = await Resident.findByIdAndUpdate(id, update, {
       new: true,

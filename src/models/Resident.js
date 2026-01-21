@@ -11,6 +11,9 @@ const ResidentSchema = new mongoose.Schema(
       default: "active",
     },
     checkIn: { type: String },
+
+    
+    expectedCheckout: { type: String },
   },
   { timestamps: true }
 );
