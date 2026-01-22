@@ -17,14 +17,11 @@ router.get("/", verifyToken, async (req, res) => {
 
 router.get("/available", verifyToken, async (req, res) => {
   try {
-    const rooms = await Room.find({
-      status: "available",
-    }).select("number type ac capacity occupants status");
+    const rooms = await Room.find({ status: "available" }).select(
+      "number type ac occupants status"
+    );
 
-    res.json({
-      ok: true,
-      rooms,
-    });
+    res.json({ ok: true, rooms });
   } catch (err) {
     console.error("GET /rooms/available error", err);
     res.status(500).json({
@@ -37,11 +34,49 @@ router.get("/available", verifyToken, async (req, res) => {
 
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const room = new Room(req.body);
+    const { number, type, ac, pricePerMonth } = req.body;
+
+    if (!number || !type || !pricePerMonth) {
+      return res.status(400).json({
+        ok: false,
+        error: "Room number, type and price are required",
+      });
+    }
+
+    
+    const existingRoom = await Room.findOne({
+      number: number.trim(),
+    });
+
+    if (existingRoom) {
+      return res.status(400).json({
+        ok: false,
+        error: `Room ${number} already exists`,
+      });
+    }
+
+    const room = new Room({
+      number: number.trim(),
+      type,
+      ac,
+      pricePerMonth,
+      status: "available",
+    });
+
     await room.save();
-    res.json({ ok: true, room });
+
+    res.status(201).json({ ok: true, room });
   } catch (err) {
     console.error("POST /rooms error", err);
+
+    
+    if (err.code === 11000) {
+      return res.status(400).json({
+        ok: false,
+        error: "Room number already exists",
+      });
+    }
+
     res.status(500).json({ ok: false, error: "Server error" });
   }
 });
