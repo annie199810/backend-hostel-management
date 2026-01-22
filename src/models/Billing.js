@@ -21,7 +21,7 @@ const billingSchema = new mongoose.Schema(
     notes: String,
     meta: Object,
 
-    // ✅ MUST be inside schema object
+   
     reminderCount: { type: Number, default: 0 },
     lastReminderAt: { type: Date },
   },

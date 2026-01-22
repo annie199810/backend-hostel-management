@@ -1,5 +1,6 @@
 const express = require("express");
 const Maintenance = require("../models/Maintenance");
+const Room = require("../models/Room");
 
 const router = express.Router();
 
@@ -7,6 +8,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const requests = await Maintenance.find().sort({ createdAt: -1 });
+
     res.json({
       ok: true,
       requests,
@@ -33,6 +35,7 @@ router.post("/", async (req, res) => {
       reportedOn,
     } = req.body;
 
+  
     if (!roomNumber || !issue) {
       return res.status(400).json({
         ok: false,
@@ -40,6 +43,17 @@ router.post("/", async (req, res) => {
       });
     }
 
+    
+    const roomExists = await Room.findOne({ roomNumber });
+
+    if (!roomExists) {
+      return res.status(400).json({
+        ok: false,
+        error: `Room ${roomNumber} does not exist`,
+      });
+    }
+
+    
     const request = await Maintenance.create({
       roomNumber,
       issue,
@@ -104,6 +118,13 @@ router.post("/:id/status", async (req, res) => {
       { new: true }
     );
 
+    if (!updated) {
+      return res.status(404).json({
+        ok: false,
+        error: "Request not found",
+      });
+    }
+
     res.json({
       ok: true,
       request: updated,
@@ -120,7 +141,15 @@ router.post("/:id/status", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    await Maintenance.findByIdAndDelete(req.params.id);
+    const deleted = await Maintenance.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        ok: false,
+        error: "Request not found",
+      });
+    }
+
     res.json({
       ok: true,
       message: "Maintenance request deleted",
@@ -133,6 +162,5 @@ router.delete("/:id", async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;
