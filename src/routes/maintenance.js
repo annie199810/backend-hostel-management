@@ -8,7 +8,6 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const requests = await Maintenance.find().sort({ createdAt: -1 });
-
     res.json({
       ok: true,
       requests,
@@ -35,7 +34,6 @@ router.post("/", async (req, res) => {
       reportedOn,
     } = req.body;
 
-  
     if (!roomNumber || !issue) {
       return res.status(400).json({
         ok: false,
@@ -44,25 +42,23 @@ router.post("/", async (req, res) => {
     }
 
     
-    const roomExists = await Room.findOne({ roomNumber });
+    const room = await Room.findOne({ number: String(roomNumber) });
 
-    if (!roomExists) {
+    if (!room) {
       return res.status(400).json({
         ok: false,
         error: `Room ${roomNumber} does not exist`,
       });
     }
 
-    
     const request = await Maintenance.create({
-      roomNumber,
+      roomNumber: String(roomNumber),
       issue,
       type: type || "Others",
       priority: priority || "Medium",
       status: status || "Open",
       reportedBy: reportedBy || "",
-      reportedOn:
-        reportedOn || new Date().toISOString().slice(0, 10),
+      reportedOn: reportedOn || new Date().toISOString().slice(0, 10),
     });
 
     res.status(201).json({
@@ -118,13 +114,6 @@ router.post("/:id/status", async (req, res) => {
       { new: true }
     );
 
-    if (!updated) {
-      return res.status(404).json({
-        ok: false,
-        error: "Request not found",
-      });
-    }
-
     res.json({
       ok: true,
       request: updated,
@@ -141,15 +130,7 @@ router.post("/:id/status", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const deleted = await Maintenance.findByIdAndDelete(req.params.id);
-
-    if (!deleted) {
-      return res.status(404).json({
-        ok: false,
-        error: "Request not found",
-      });
-    }
-
+    await Maintenance.findByIdAndDelete(req.params.id);
     res.json({
       ok: true,
       message: "Maintenance request deleted",
