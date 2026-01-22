@@ -110,4 +110,46 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+
+router.patch("/:id/remind", async (req, res) => {
+  try {
+    const bill = await Billing.findById(req.params.id);
+
+    if (!bill) {
+      return res.status(404).json({
+        ok: false,
+        error: "Billing record not found",
+      });
+    }
+
+    // 🚫 Block reminder if already paid
+    if (bill.status === "Paid") {
+      return res.status(400).json({
+        ok: false,
+        error: "Payment already completed. Reminder not allowed.",
+      });
+    }
+
+    bill.reminderCount = (bill.reminderCount || 0) + 1;
+    bill.lastReminderAt = new Date();
+
+    await bill.save();
+
+    console.log("🔔 Reminder sent to:", bill.residentName);
+
+    res.json({
+      ok: true,
+      message: "Payment reminder sent successfully",
+      reminderCount: bill.reminderCount,
+      lastReminderAt: bill.lastReminderAt,
+    });
+  } catch (err) {
+    console.error("REMINDER ERROR:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Failed to send reminder",
+    });
+  }
+});
+
 module.exports = router;
