@@ -13,7 +13,11 @@ const ResidentSchema = new mongoose.Schema(
     checkIn: { type: String },
 
     
-    expectedCheckout: { type: String },
+    expectedCheckout: {
+  type: String,
+  required: true
+},
+
   },
   { timestamps: true }
 );

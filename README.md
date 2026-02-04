@@ -4,6 +4,13 @@ This repository contains the backend API for the Hostel Management System, built
 
 The backend handles authentication, authorization, room allocation, resident management, maintenance requests, billing, payments, reporting logic, and role-based access control for Admin and Staff users.
 
+## 🎥 Demo Video
+
+Watch the complete demo of the Hostel Management System here:  
+👉 https://drive.google.com/file/d/1cQP24g1GNHSisuMVr90Xgzw19tAQi9xG/view?usp=drive_link
+
+
+
 🚀 Live Backend (Render)
 
 🔗 API Base URL
